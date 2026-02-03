@@ -48,6 +48,7 @@
 #define SC_Wait 52
 #define SC_Signal 53
 #define SC_GetPid 54
+#define SC_Abs 55
 
 #ifndef IN_ASM
 
@@ -67,6 +68,7 @@ void Halt();
 /*
  * Add the two operants and return the result
  */
+int Abs(int num);
 
 int Add(int op1, int op2);
 

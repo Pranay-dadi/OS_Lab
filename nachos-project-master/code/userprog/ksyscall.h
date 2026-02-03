@@ -20,6 +20,15 @@ void SysHalt() { kernel->interrupt->Halt(); }
 
 int SysAdd(int op1, int op2) { return op1 + op2; }
 
+int SysAbs(int num) {
+    if(num>0){
+        return num;
+    }
+    else{
+        return -num;
+    }
+}
+
 int SysReadNum() {
     readUntilBlank();
 
