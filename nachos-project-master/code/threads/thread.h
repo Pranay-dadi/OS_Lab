@@ -90,6 +90,10 @@ class Thread {
     int processID;
     int parrentID;
     int exitStatus;
+    int getPriority() const { return priority; }
+
+    void setPriority(int p) { priority = p; }
+
     void FreeSpace() {
         if (space != 0) delete space;
     }
@@ -119,6 +123,7 @@ class Thread {
                           // (If NULL, don't deallocate stack)
     ThreadStatus status;  // ready, running or blocked
     char *name;
+    int priority = 1;    // default priority = 1 (low)
 
     void StackAllocate(VoidFunctionPtr func, void *arg);
     // Allocate a stack for thread.

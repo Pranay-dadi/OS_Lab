@@ -1,0 +1,119 @@
+diff --git a/nachos-project-master/code/test/Makefile b/nachos-project-master/code/test/Makefile
+index 2d0e84c..c2dd38f 100644
+--- a/nachos-project-master/code/test/Makefile
++++ b/nachos-project-master/code/test/Makefile
+@@ -112,7 +112,7 @@ ifeq ($(hosttype),unknown)
+ PROGRAMS = unknownhost
+ else
+ # change this if you create a new test program!
+-PROGRAMS = add halt shell matmult sort segments test_syscall num_io char_io random str_io ascii bubblesort help create_file open_file readwrite exec test_sem sinhvien voinuoc main
++PROGRAMS = add abs halt shell matmult sort segments test_syscall num_io char_io random str_io ascii bubblesort help create_file open_file readwrite exec test_sem sinhvien voinuoc main
+ endif
+ 
+ all: $(PROGRAMS)
+@@ -126,6 +126,13 @@ halt: halt.o start.o
+ 	$(LD) $(LDFLAGS) start.o halt.o -o halt.coff
+ 	$(COFF2NOFF) halt.coff halt
+ 
++abs.o: abs.c
++	$(CC) $(CFLAGS) -c abs.c
++
++abs: abs.o start.o
++	$(LD) $(LDFLAGS) start.o abs.o -o abs.coff
++	$(COFF2NOFF) abs.coff abs
++
+ add.o: add.c
+ 	$(CC) $(CFLAGS) -c add.c
+ 
+diff --git a/nachos-project-master/code/test/abs.c b/nachos-project-master/code/test/abs.c
+new file mode 100644
+index 0000000..045dfcc
+--- /dev/null
++++ b/nachos-project-master/code/test/abs.c
+@@ -0,0 +1,11 @@
++#include "syscall.h"
++
++int main() {
++    int x = -10;
++    int y;
++    y = Abs(x);
++
++    PrintNum(y);
++    Halt();
++    /* not reached */
++}
+diff --git a/nachos-project-master/code/userprog/exception.cc b/nachos-project-master/code/userprog/exception.cc
+index a5d02c7..b39d8e2 100644
+--- a/nachos-project-master/code/userprog/exception.cc
++++ b/nachos-project-master/code/userprog/exception.cc
+@@ -154,6 +154,21 @@ void handle_SC_Add() {
+     return move_program_counter();
+ }
+ 
++void handle_SC_Abs() {
++    DEBUG(dbgSys, "Abs " << kernel->machine->ReadRegister(4)<< "\n");
++
++    /* Process SysAbs Systemcall*/
++    int result;
++    result = SysAbs(
++        /* int num */ (int)kernel->machine->ReadRegister(4));
++
++    DEBUG(dbgSys, "Abs returning with " << result << "\n");
++    /* Prepare Result */
++    kernel->machine->WriteRegister(2, (int)result);
++
++    return move_program_counter();
++}
++
+ void handle_SC_ReadNum() {
+     int result = SysReadNum();
+     kernel->machine->WriteRegister(2, result);
+@@ -421,6 +436,8 @@ void ExceptionHandler(ExceptionType which) {
+                     return handle_SC_Halt();
+                 case SC_Add:
+                     return handle_SC_Add();
++                case SC_Abs:
++                    return handle_SC_Abs();
+                 case SC_ReadNum:
+                     return handle_SC_ReadNum();
+                 case SC_PrintNum:
+diff --git a/nachos-project-master/code/userprog/ksyscall.h b/nachos-project-master/code/userprog/ksyscall.h
+index 7fdcf31..a5436fc 100644
+--- a/nachos-project-master/code/userprog/ksyscall.h
++++ b/nachos-project-master/code/userprog/ksyscall.h
+@@ -20,6 +20,15 @@ void SysHalt() { kernel->interrupt->Halt(); }
+ 
+ int SysAdd(int op1, int op2) { return op1 + op2; }
+ 
++int SysAbs(int num) {
++    if(num>0){
++        return num;
++    }
++    else{
++        return -num;
++    }
++}
++
+ int SysReadNum() {
+     readUntilBlank();
+ 
+diff --git a/nachos-project-master/code/userprog/syscall.h b/nachos-project-master/code/userprog/syscall.h
+index 0865b05..954b655 100644
+--- a/nachos-project-master/code/userprog/syscall.h
++++ b/nachos-project-master/code/userprog/syscall.h
+@@ -48,6 +48,7 @@
+ #define SC_Wait 52
+ #define SC_Signal 53
+ #define SC_GetPid 54
++#define SC_Abs 55
+ 
+ #ifndef IN_ASM
+ 
+@@ -67,6 +68,7 @@ void Halt();
+ /*
+  * Add the two operants and return the result
+  */
++int Abs(int num);
+ 
+ int Add(int op1, int op2);
+ 

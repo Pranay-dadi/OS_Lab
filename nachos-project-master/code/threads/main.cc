@@ -50,6 +50,8 @@
 Kernel *kernel;
 Debug *debug;
 
+void PrioritySchedulerTest();
+
 //----------------------------------------------------------------------
 // Cleanup
 //	Delete kernel data structures; called when user hits "ctl-C".
@@ -161,6 +163,8 @@ int main(int argc, char **argv) {
     bool threadTestFlag = false;
     bool consoleTestFlag = false;
     bool networkTestFlag = false;
+    bool priorityTestFlag = false;
+
 #ifndef FILESYS_STUB
     char *copyUnixFileName = NULL;    // UNIX file to be copied into Nachos
     char *copyNachosFileName = NULL;  // name of copied file in Nachos
@@ -186,6 +190,8 @@ int main(int argc, char **argv) {
             i++;
         } else if (strcmp(argv[i], "-K") == 0) {
             threadTestFlag = TRUE;
+        } else if (strcmp(argv[i], "-P") == 0) {
+            priorityTestFlag = true;
         } else if (strcmp(argv[i], "-C") == 0) {
             consoleTestFlag = TRUE;
         } else if (strcmp(argv[i], "-N") == 0) {
@@ -215,6 +221,7 @@ int main(int argc, char **argv) {
             cout << "Partial usage: nachos [-z -d debugFlags]\n";
             cout << "Partial usage: nachos [-x programName]\n";
             cout << "Partial usage: nachos [-K] [-C] [-N]\n";
+            cout << "Partial usage: nachos [-P] (Priority Scheduler Test)\n";
 #ifndef FILESYS_STUB
             cout << "Partial usage: nachos [-cp UnixFile NachosFile]\n";
             cout << "Partial usage: nachos [-p fileName] [-r fileName]\n";
@@ -243,6 +250,10 @@ int main(int argc, char **argv) {
     if (networkTestFlag) {
         kernel->NetworkTest();  // two-machine test of the network
     }
+    if (priorityTestFlag) {
+        PrioritySchedulerTest();
+    }
+
 
 #ifndef FILESYS_STUB
     if (removeFileName != NULL) {
