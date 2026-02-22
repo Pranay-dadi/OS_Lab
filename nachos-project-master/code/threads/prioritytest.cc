@@ -13,7 +13,7 @@ PriorityThread(void* arg)
     for (int i = 0; i < 5; i++) {
         printf("Thread %d running at tick %d\n",
                id, kernel->stats->totalTicks);
-        kernel->currentThread->Yield();
+        kernel->interrupt->OneTick();
     }
 }
 
