@@ -40,11 +40,38 @@ Alarm::Alarm(bool doRandom) { timer = new Timer(doRandom, this); }
 //      if we're currently running something (in other words, not idle).
 //----------------------------------------------------------------------
 
-void Alarm::CallBack() {
-    Interrupt *interrupt = kernel->interrupt;
-    MachineStatus status = interrupt->getStatus();
+void Alarm::WaitUntil(int x) {
+    IntStatus oldLevel = kernel->interrupt->SetLevel(IntOff);
+    
+    SleepEntry* entry = new SleepEntry();
+    entry->thread = kernel->currentThread;
+    entry->wakeTime = kernel->stats->totalTicks + x;
+    sleepQueue.Append(entry);
+    
+    kernel->currentThread->Sleep(false);
+    (void)kernel->interrupt->SetLevel(oldLevel);
+}
 
-    if (status != IdleMode) {
-        interrupt->YieldOnReturn();
+
+void Alarm::CallBack() {
+    Interrupt* interrupt = kernel->interrupt;
+    MachineStatus status = interrupt->getStatus();
+    int now = kernel->stats->totalTicks;
+
+    // Wake threads whose time has come
+    List<SleepEntry*> remaining;
+    while (!sleepQueue.IsEmpty()) {
+        SleepEntry* e = sleepQueue.RemoveFront();
+        if (e->wakeTime <= now) {
+            kernel->scheduler->ReadyToRun(e->thread);
+            delete e;
+        } else {
+            remaining.Append(e);
+        }
     }
+    while (!remaining.IsEmpty())
+        sleepQueue.Append(remaining.RemoveFront());
+
+    if (status != IdleMode)
+        interrupt->YieldOnReturn();
 }
