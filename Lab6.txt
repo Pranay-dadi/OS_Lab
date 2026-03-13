@@ -1,0 +1,3912 @@
+diff --git a/Lab2.txt b/Lab2.txt
+new file mode 100644
+index 0000000..4b8364a
+--- /dev/null
++++ b/Lab2.txt
+@@ -0,0 +1,769 @@
++diff --git a/Lab1.txt b/Lab1.txt
++deleted file mode 100644
++index 0f1fecc..0000000
++--- a/Lab1.txt
+++++ /dev/null
++@@ -1,119 +0,0 @@
++-diff --git a/nachos-project-master/code/test/Makefile b/nachos-project-master/code/test/Makefile
++-index 2d0e84c..c2dd38f 100644
++---- a/nachos-project-master/code/test/Makefile
++-+++ b/nachos-project-master/code/test/Makefile
++-@@ -112,7 +112,7 @@ ifeq ($(hosttype),unknown)
++- PROGRAMS = unknownhost
++- else
++- # change this if you create a new test program!
++--PROGRAMS = add halt shell matmult sort segments test_syscall num_io char_io random str_io ascii bubblesort help create_file open_file readwrite exec test_sem sinhvien voinuoc main
++-+PROGRAMS = add abs halt shell matmult sort segments test_syscall num_io char_io random str_io ascii bubblesort help create_file open_file readwrite exec test_sem sinhvien voinuoc main
++- endif
++- 
++- all: $(PROGRAMS)
++-@@ -126,6 +126,13 @@ halt: halt.o start.o
++- 	$(LD) $(LDFLAGS) start.o halt.o -o halt.coff
++- 	$(COFF2NOFF) halt.coff halt
++- 
++-+abs.o: abs.c
++-+	$(CC) $(CFLAGS) -c abs.c
++-+
++-+abs: abs.o start.o
++-+	$(LD) $(LDFLAGS) start.o abs.o -o abs.coff
++-+	$(COFF2NOFF) abs.coff abs
++-+
++- add.o: add.c
++- 	$(CC) $(CFLAGS) -c add.c
++- 
++-diff --git a/nachos-project-master/code/test/abs.c b/nachos-project-master/code/test/abs.c
++-new file mode 100644
++-index 0000000..045dfcc
++---- /dev/null
++-+++ b/nachos-project-master/code/test/abs.c
++-@@ -0,0 +1,11 @@
++-+#include "syscall.h"
++-+
++-+int main() {
++-+    int x = -10;
++-+    int y;
++-+    y = Abs(x);
++-+
++-+    PrintNum(y);
++-+    Halt();
++-+    /* not reached */
++-+}
++-diff --git a/nachos-project-master/code/userprog/exception.cc b/nachos-project-master/code/userprog/exception.cc
++-index a5d02c7..b39d8e2 100644
++---- a/nachos-project-master/code/userprog/exception.cc
++-+++ b/nachos-project-master/code/userprog/exception.cc
++-@@ -154,6 +154,21 @@ void handle_SC_Add() {
++-     return move_program_counter();
++- }
++- 
++-+void handle_SC_Abs() {
++-+    DEBUG(dbgSys, "Abs " << kernel->machine->ReadRegister(4)<< "\n");
++-+
++-+    /* Process SysAbs Systemcall*/
++-+    int result;
++-+    result = SysAbs(
++-+        /* int num */ (int)kernel->machine->ReadRegister(4));
++-+
++-+    DEBUG(dbgSys, "Abs returning with " << result << "\n");
++-+    /* Prepare Result */
++-+    kernel->machine->WriteRegister(2, (int)result);
++-+
++-+    return move_program_counter();
++-+}
++-+
++- void handle_SC_ReadNum() {
++-     int result = SysReadNum();
++-     kernel->machine->WriteRegister(2, result);
++-@@ -421,6 +436,8 @@ void ExceptionHandler(ExceptionType which) {
++-                     return handle_SC_Halt();
++-                 case SC_Add:
++-                     return handle_SC_Add();
++-+                case SC_Abs:
++-+                    return handle_SC_Abs();
++-                 case SC_ReadNum:
++-                     return handle_SC_ReadNum();
++-                 case SC_PrintNum:
++-diff --git a/nachos-project-master/code/userprog/ksyscall.h b/nachos-project-master/code/userprog/ksyscall.h
++-index 7fdcf31..a5436fc 100644
++---- a/nachos-project-master/code/userprog/ksyscall.h
++-+++ b/nachos-project-master/code/userprog/ksyscall.h
++-@@ -20,6 +20,15 @@ void SysHalt() { kernel->interrupt->Halt(); }
++- 
++- int SysAdd(int op1, int op2) { return op1 + op2; }
++- 
++-+int SysAbs(int num) {
++-+    if(num>0){
++-+        return num;
++-+    }
++-+    else{
++-+        return -num;
++-+    }
++-+}
++-+
++- int SysReadNum() {
++-     readUntilBlank();
++- 
++-diff --git a/nachos-project-master/code/userprog/syscall.h b/nachos-project-master/code/userprog/syscall.h
++-index 0865b05..954b655 100644
++---- a/nachos-project-master/code/userprog/syscall.h
++-+++ b/nachos-project-master/code/userprog/syscall.h
++-@@ -48,6 +48,7 @@
++- #define SC_Wait 52
++- #define SC_Signal 53
++- #define SC_GetPid 54
++-+#define SC_Abs 55
++- 
++- #ifndef IN_ASM
++- 
++-@@ -67,6 +68,7 @@ void Halt();
++- /*
++-  * Add the two operants and return the result
++-  */
++-+int Abs(int num);
++- 
++- int Add(int op1, int op2);
++- 
++diff --git a/nachos-project-master/code/build.linux/Makefile b/nachos-project-master/code/build.linux/Makefile
++index efd2473..3def870 100644
++--- a/nachos-project-master/code/build.linux/Makefile
+++++ b/nachos-project-master/code/build.linux/Makefile
++@@ -287,9 +287,8 @@ THREAD_C = ../threads/alarm.cc\
++ 	../threads/pcb.cc\
++ 	../threads/stable.cc\
++ 	../threads/sem.cc\
++-	../threads/prioritytest.cc\
++ 
++-THREAD_O = alarm.o kernel.o main.o scheduler.o synch.o thread.o ptable.o pcb.o stable.o sem.o prioritytest.o
+++THREAD_O = alarm.o kernel.o main.o scheduler.o synch.o thread.o ptable.o pcb.o stable.o sem.o
++ 
++ USERPROG_H = ../userprog/addrspace.h\
++ 	../userprog/syscall.h\
++diff --git a/nachos-project-master/code/build.linux/Makefile.dep b/nachos-project-master/code/build.linux/Makefile.dep
++index fdf2725..6495bda 100644
++--- a/nachos-project-master/code/build.linux/Makefile.dep
+++++ b/nachos-project-master/code/build.linux/Makefile.dep
++@@ -3783,162 +3783,6 @@ sem.o: ../threads/sem.cc /usr/include/stdc-predef.h ../threads/sem.h \
++  ../threads/scheduler.h ../machine/interrupt.h ../machine/callback.h \
++  ../machine/stats.h ../threads/alarm.h ../machine/timer.h ../lib/bitmap.h \
++  ../threads/stable.h ../threads/ptable.h ../threads/pcb.h
++-prioritytest.o: ../threads/prioritytest.cc /usr/include/stdc-predef.h \
++- ../threads/kernel.h ../lib/copyright.h ../lib/debug.h ../lib/utility.h \
++- ../lib/sysdep.h /usr/include/c++/11/iostream \
++- /usr/include/x86_64-linux-gnu/c++/11/bits/c++config.h \
++- /usr/include/x86_64-linux-gnu/c++/11/bits/os_defines.h \
++- /usr/include/features.h /usr/include/features-time64.h \
++- /usr/include/x86_64-linux-gnu/bits/wordsize.h \
++- /usr/include/x86_64-linux-gnu/bits/timesize.h \
++- /usr/include/x86_64-linux-gnu/sys/cdefs.h \
++- /usr/include/x86_64-linux-gnu/bits/long-double.h \
++- /usr/include/x86_64-linux-gnu/gnu/stubs.h \
++- /usr/include/x86_64-linux-gnu/gnu/stubs-64.h \
++- /usr/include/x86_64-linux-gnu/c++/11/bits/cpu_defines.h \
++- /usr/include/c++/11/pstl/pstl_config.h /usr/include/c++/11/ostream \
++- /usr/include/c++/11/ios /usr/include/c++/11/iosfwd \
++- /usr/include/c++/11/bits/stringfwd.h \
++- /usr/include/c++/11/bits/memoryfwd.h /usr/include/c++/11/bits/postypes.h \
++- /usr/include/c++/11/cwchar /usr/include/wchar.h \
++- /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
++- /usr/include/x86_64-linux-gnu/bits/floatn.h \
++- /usr/include/x86_64-linux-gnu/bits/floatn-common.h \
++- /usr/lib/gcc/x86_64-linux-gnu/11/include/stddef.h \
++- /usr/lib/gcc/x86_64-linux-gnu/11/include/stdarg.h \
++- /usr/include/x86_64-linux-gnu/bits/wchar.h \
++- /usr/include/x86_64-linux-gnu/bits/types/wint_t.h \
++- /usr/include/x86_64-linux-gnu/bits/types/mbstate_t.h \
++- /usr/include/x86_64-linux-gnu/bits/types/__mbstate_t.h \
++- /usr/include/x86_64-linux-gnu/bits/types/__FILE.h \
++- /usr/include/x86_64-linux-gnu/bits/types/FILE.h \
++- /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
++- /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
++- /usr/include/c++/11/exception /usr/include/c++/11/bits/exception.h \
++- /usr/include/c++/11/bits/exception_ptr.h \
++- /usr/include/c++/11/bits/exception_defines.h \
++- /usr/include/c++/11/bits/cxxabi_init_exception.h \
++- /usr/include/c++/11/typeinfo /usr/include/c++/11/bits/hash_bytes.h \
++- /usr/include/c++/11/new /usr/include/c++/11/bits/move.h \
++- /usr/include/c++/11/type_traits \
++- /usr/include/c++/11/bits/nested_exception.h \
++- /usr/include/c++/11/bits/char_traits.h \
++- /usr/include/c++/11/bits/stl_algobase.h \
++- /usr/include/c++/11/bits/functexcept.h \
++- /usr/include/c++/11/bits/cpp_type_traits.h \
++- /usr/include/c++/11/ext/type_traits.h \
++- /usr/include/c++/11/ext/numeric_traits.h \
++- /usr/include/c++/11/bits/stl_pair.h \
++- /usr/include/c++/11/bits/stl_iterator_base_types.h \
++- /usr/include/c++/11/bits/stl_iterator_base_funcs.h \
++- /usr/include/c++/11/bits/concept_check.h \
++- /usr/include/c++/11/debug/assertions.h \
++- /usr/include/c++/11/bits/stl_iterator.h \
++- /usr/include/c++/11/bits/ptr_traits.h /usr/include/c++/11/debug/debug.h \
++- /usr/include/c++/11/bits/predefined_ops.h /usr/include/c++/11/cstdint \
++- /usr/lib/gcc/x86_64-linux-gnu/11/include/stdint.h /usr/include/stdint.h \
++- /usr/include/x86_64-linux-gnu/bits/types.h \
++- /usr/include/x86_64-linux-gnu/bits/typesizes.h \
++- /usr/include/x86_64-linux-gnu/bits/time64.h \
++- /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
++- /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
++- /usr/include/c++/11/bits/localefwd.h \
++- /usr/include/x86_64-linux-gnu/c++/11/bits/c++locale.h \
++- /usr/include/c++/11/clocale /usr/include/locale.h \
++- /usr/include/x86_64-linux-gnu/bits/locale.h /usr/include/c++/11/cctype \
++- /usr/include/ctype.h /usr/include/x86_64-linux-gnu/bits/endian.h \
++- /usr/include/x86_64-linux-gnu/bits/endianness.h \
++- /usr/include/c++/11/bits/ios_base.h /usr/include/c++/11/ext/atomicity.h \
++- /usr/include/x86_64-linux-gnu/c++/11/bits/gthr.h \
++- /usr/include/x86_64-linux-gnu/c++/11/bits/gthr-default.h \
++- /usr/include/pthread.h /usr/include/sched.h \
++- /usr/include/x86_64-linux-gnu/bits/types/time_t.h \
++- /usr/include/x86_64-linux-gnu/bits/types/struct_timespec.h \
++- /usr/include/x86_64-linux-gnu/bits/sched.h \
++- /usr/include/x86_64-linux-gnu/bits/types/struct_sched_param.h \
++- /usr/include/x86_64-linux-gnu/bits/cpu-set.h /usr/include/time.h \
++- /usr/include/x86_64-linux-gnu/bits/time.h \
++- /usr/include/x86_64-linux-gnu/bits/timex.h \
++- /usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h \
++- /usr/include/x86_64-linux-gnu/bits/types/clock_t.h \
++- /usr/include/x86_64-linux-gnu/bits/types/struct_tm.h \
++- /usr/include/x86_64-linux-gnu/bits/types/clockid_t.h \
++- /usr/include/x86_64-linux-gnu/bits/types/timer_t.h \
++- /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h \
++- /usr/include/x86_64-linux-gnu/bits/pthreadtypes.h \
++- /usr/include/x86_64-linux-gnu/bits/thread-shared-types.h \
++- /usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h \
++- /usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h \
++- /usr/include/x86_64-linux-gnu/bits/struct_mutex.h \
++- /usr/include/x86_64-linux-gnu/bits/struct_rwlock.h \
++- /usr/include/x86_64-linux-gnu/bits/setjmp.h \
++- /usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h \
++- /usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h \
++- /usr/include/x86_64-linux-gnu/bits/pthread_stack_min-dynamic.h \
++- /usr/include/x86_64-linux-gnu/c++/11/bits/atomic_word.h \
++- /usr/include/x86_64-linux-gnu/sys/single_threaded.h \
++- /usr/include/c++/11/bits/locale_classes.h /usr/include/c++/11/string \
++- /usr/include/c++/11/bits/allocator.h \
++- /usr/include/x86_64-linux-gnu/c++/11/bits/c++allocator.h \
++- /usr/include/c++/11/ext/new_allocator.h \
++- /usr/include/c++/11/bits/ostream_insert.h \
++- /usr/include/c++/11/bits/cxxabi_forced.h \
++- /usr/include/c++/11/bits/stl_function.h \
++- /usr/include/c++/11/backward/binders.h \
++- /usr/include/c++/11/bits/range_access.h \
++- /usr/include/c++/11/initializer_list \
++- /usr/include/c++/11/bits/basic_string.h \
++- /usr/include/c++/11/ext/alloc_traits.h \
++- /usr/include/c++/11/bits/alloc_traits.h \
++- /usr/include/c++/11/bits/stl_construct.h /usr/include/c++/11/string_view \
++- /usr/include/c++/11/bits/functional_hash.h \
++- /usr/include/c++/11/bits/string_view.tcc \
++- /usr/include/c++/11/ext/string_conversions.h /usr/include/c++/11/cstdlib \
++- /usr/include/stdlib.h /usr/include/x86_64-linux-gnu/bits/waitflags.h \
++- /usr/include/x86_64-linux-gnu/bits/waitstatus.h \
++- /usr/include/x86_64-linux-gnu/sys/types.h /usr/include/endian.h \
++- /usr/include/x86_64-linux-gnu/bits/byteswap.h \
++- /usr/include/x86_64-linux-gnu/bits/uintn-identity.h \
++- /usr/include/x86_64-linux-gnu/sys/select.h \
++- /usr/include/x86_64-linux-gnu/bits/select.h \
++- /usr/include/x86_64-linux-gnu/bits/types/sigset_t.h \
++- /usr/include/alloca.h /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
++- /usr/include/c++/11/bits/std_abs.h /usr/include/c++/11/cstdio \
++- /usr/include/stdio.h /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h \
++- /usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h \
++- /usr/include/x86_64-linux-gnu/bits/types/struct_FILE.h \
++- /usr/include/x86_64-linux-gnu/bits/types/cookie_io_functions_t.h \
++- /usr/include/x86_64-linux-gnu/bits/stdio_lim.h \
++- /usr/include/c++/11/cerrno /usr/include/errno.h \
++- /usr/include/x86_64-linux-gnu/bits/errno.h /usr/include/linux/errno.h \
++- /usr/include/x86_64-linux-gnu/asm/errno.h \
++- /usr/include/asm-generic/errno.h /usr/include/asm-generic/errno-base.h \
++- /usr/include/x86_64-linux-gnu/bits/types/error_t.h \
++- /usr/include/c++/11/bits/charconv.h \
++- /usr/include/c++/11/bits/basic_string.tcc \
++- /usr/include/c++/11/bits/locale_classes.tcc \
++- /usr/include/c++/11/system_error \
++- /usr/include/x86_64-linux-gnu/c++/11/bits/error_constants.h \
++- /usr/include/c++/11/stdexcept /usr/include/c++/11/streambuf \
++- /usr/include/c++/11/bits/streambuf.tcc \
++- /usr/include/c++/11/bits/basic_ios.h \
++- /usr/include/c++/11/bits/locale_facets.h /usr/include/c++/11/cwctype \
++- /usr/include/wctype.h /usr/include/x86_64-linux-gnu/bits/wctype-wchar.h \
++- /usr/include/x86_64-linux-gnu/c++/11/bits/ctype_base.h \
++- /usr/include/c++/11/bits/streambuf_iterator.h \
++- /usr/include/x86_64-linux-gnu/c++/11/bits/ctype_inline.h \
++- /usr/include/c++/11/bits/locale_facets.tcc \
++- /usr/include/c++/11/bits/basic_ios.tcc \
++- /usr/include/c++/11/bits/ostream.tcc /usr/include/c++/11/istream \
++- /usr/include/c++/11/bits/istream.tcc /usr/include/c++/11/stdlib.h \
++- /usr/include/string.h /usr/include/strings.h ../threads/thread.h \
++- ../machine/machine.h ../machine/translate.h ../userprog/addrspace.h \
++- ../filesys/filesys.h ../filesys/openfile.h ../filesys/filetable.h \
++- ../threads/scheduler.h ../lib/list.h ../lib/list.cc \
++- ../machine/interrupt.h ../machine/callback.h ../machine/stats.h \
++- ../threads/alarm.h ../machine/timer.h ../lib/bitmap.h \
++- ../threads/stable.h ../threads/sem.h ../threads/ptable.h \
++- ../threads/pcb.h
++ addrspace.o: ../userprog/addrspace.cc /usr/include/stdc-predef.h \
++  ../lib/copyright.h ../threads/main.h ../lib/debug.h ../lib/utility.h \
++  ../lib/sysdep.h /usr/include/c++/11/iostream \
++diff --git a/nachos-project-master/code/threads/main.cc b/nachos-project-master/code/threads/main.cc
++index 13ea0e4..cab8ce4 100644
++--- a/nachos-project-master/code/threads/main.cc
+++++ b/nachos-project-master/code/threads/main.cc
++@@ -50,8 +50,6 @@
++ Kernel *kernel;
++ Debug *debug;
++ 
++-void PrioritySchedulerTest();
++-
++ //----------------------------------------------------------------------
++ // Cleanup
++ //	Delete kernel data structures; called when user hits "ctl-C".
++@@ -163,8 +161,6 @@ int main(int argc, char **argv) {
++     bool threadTestFlag = false;
++     bool consoleTestFlag = false;
++     bool networkTestFlag = false;
++-    bool priorityTestFlag = false;
++-
++ #ifndef FILESYS_STUB
++     char *copyUnixFileName = NULL;    // UNIX file to be copied into Nachos
++     char *copyNachosFileName = NULL;  // name of copied file in Nachos
++@@ -190,8 +186,6 @@ int main(int argc, char **argv) {
++             i++;
++         } else if (strcmp(argv[i], "-K") == 0) {
++             threadTestFlag = TRUE;
++-        } else if (strcmp(argv[i], "-P") == 0) {
++-            priorityTestFlag = true;
++         } else if (strcmp(argv[i], "-C") == 0) {
++             consoleTestFlag = TRUE;
++         } else if (strcmp(argv[i], "-N") == 0) {
++@@ -221,7 +215,6 @@ int main(int argc, char **argv) {
++             cout << "Partial usage: nachos [-z -d debugFlags]\n";
++             cout << "Partial usage: nachos [-x programName]\n";
++             cout << "Partial usage: nachos [-K] [-C] [-N]\n";
++-            cout << "Partial usage: nachos [-P] (Priority Scheduler Test)\n";
++ #ifndef FILESYS_STUB
++             cout << "Partial usage: nachos [-cp UnixFile NachosFile]\n";
++             cout << "Partial usage: nachos [-p fileName] [-r fileName]\n";
++@@ -250,10 +243,6 @@ int main(int argc, char **argv) {
++     if (networkTestFlag) {
++         kernel->NetworkTest();  // two-machine test of the network
++     }
++-    if (priorityTestFlag) {
++-        PrioritySchedulerTest();
++-    }
++-
++ 
++ #ifndef FILESYS_STUB
++     if (removeFileName != NULL) {
++diff --git a/nachos-project-master/code/threads/prioritytest.cc b/nachos-project-master/code/threads/prioritytest.cc
++deleted file mode 100644
++index 9434a7f..0000000
++--- a/nachos-project-master/code/threads/prioritytest.cc
+++++ /dev/null
++@@ -1,49 +0,0 @@
++-#include "kernel.h"
++-#include "thread.h"
++-#include "scheduler.h"
++-#include "interrupt.h"
++-#include "debug.h"
++-
++-extern Kernel *kernel;
++-
++-void
++-PriorityThread(void* arg)
++-{
++-    int id = (int)(long)arg;
++-    for (int i = 0; i < 5; i++) {
++-        printf("Thread %d running at tick %d\n",
++-               id, kernel->stats->totalTicks);
++-        kernel->currentThread->Yield();
++-    }
++-}
++-
++-void PrioritySchedulerTest()
++-{
++-    printf("\n--- Priority Scheduler Test ---\n");
++-
++-    // Enable priority scheduling
++-    kernel->scheduler->EnablePriorityScheduling(true);
++-
++-    Thread *low = new Thread((char *)"LowPriority");
++-    Thread *mid = new Thread((char *)"MidPriority");
++-    Thread *high = new Thread((char *)"HighPriority");
++-
++-    low->setPriority(1);
++-    mid->setPriority(5);
++-    high->setPriority(10);
++-
++-    low->Fork(PriorityThread, (void *)1);
++-    mid->Fork(PriorityThread, (void *)5);
++-    high->Fork(PriorityThread, (void *)10);
++-
++-    // ────────────────────────────────────────────────
++-    // VERY IMPORTANT: Give time for the threads to run!
++-    // ────────────────────────────────────────────────
++-    printf("Main thread yielding to let priority threads run...\n");
++-
++-    for (int i = 0; i < 100; i++) {           // 50–200 is usually enough
++-        kernel->currentThread->Yield();
++-    }
++-
++-    printf("Priority test finished.\n");
++-}
++diff --git a/nachos-project-master/code/threads/scheduler.cc b/nachos-project-master/code/threads/scheduler.cc
++index 0969543..1d52916 100644
++--- a/nachos-project-master/code/threads/scheduler.cc
+++++ b/nachos-project-master/code/threads/scheduler.cc
++@@ -1,150 +1,154 @@
++ // scheduler.cc
+++//	Routines to choose the next thread to run, and to dispatch to
+++//	that thread.
+++//
+++// 	These routines assume that interrupts are already disabled.
+++//	If interrupts are disabled, we can assume mutual exclusion
+++//	(since we are on a uniprocessor).
+++//
+++// 	NOTE: We can't use Locks to provide mutual exclusion here, since
+++// 	if we needed to wait for a lock, and the lock was busy, we would
+++//	end up calling FindNextToRun(), and that would put us in an
+++//	infinite loop.
+++//
+++// 	Very simple implementation -- no priorities, straight FIFO.
+++//	Might need to be improved in later assignments.
+++//
+++// Copyright (c) 1992-1996 The Regents of the University of California.
+++// All rights reserved.  See copyright.h for copyright notice and limitation
+++// of liability and disclaimer of warranty provisions.
+++
++ #include "copyright.h"
++ #include "debug.h"
++ #include "scheduler.h"
++ #include "main.h"
++-#include "kernel.h"
++ 
++ //----------------------------------------------------------------------
++ // Scheduler::Scheduler
+++// 	Initialize the list of ready but not running threads.
+++//	Initially, no ready threads.
++ //----------------------------------------------------------------------
+++
++ Scheduler::Scheduler() {
++-    readyList = new List<Thread*>;
+++    readyList = new List<Thread *>;
++     toBeDestroyed = NULL;
++-    usePriorityScheduling = false;
++ }
++ 
++ //----------------------------------------------------------------------
++ // Scheduler::~Scheduler
+++// 	De-allocate the list of ready threads.
++ //----------------------------------------------------------------------
++-Scheduler::~Scheduler() {
++-    delete readyList;
++-}
++ 
++-//----------------------------------------------------------------------
++-// Scheduler::EnablePriorityScheduling
++-//----------------------------------------------------------------------
++-void
++-Scheduler::EnablePriorityScheduling(bool enable) {
++-    usePriorityScheduling = enable;
++-    DEBUG(dbgThread, "Priority scheduling now: " << (enable ? "ON" : "OFF"));
++-}
+++Scheduler::~Scheduler() { delete readyList; }
++ 
++ //----------------------------------------------------------------------
++ // Scheduler::ReadyToRun
+++// 	Mark a thread as ready, but not running.
+++//	Put it on the ready list, for later scheduling onto the CPU.
+++//
+++//	"thread" is the thread to be put on the ready list.
++ //----------------------------------------------------------------------
++-void
++-Scheduler::ReadyToRun(Thread *thread) {
+++
+++void Scheduler::ReadyToRun(Thread *thread) {
++     ASSERT(kernel->interrupt->getLevel() == IntOff);
++     DEBUG(dbgThread, "Putting thread on ready list: " << thread->getName());
++ 
++     thread->setStatus(READY);
++-    readyList->Append(thread);          // always append (FIFO insertion)
++-}
++-
++-//----------------------------------------------------------------------
++-// Scheduler::ReadyToRunPriority
++-//----------------------------------------------------------------------
++-void
++-Scheduler::ReadyToRunPriority(Thread *thread) {
++-    ReadyToRun(thread);   // same behavior – we select by priority later
+++    readyList->Append(thread);
++ }
++ 
++ //----------------------------------------------------------------------
++ // Scheduler::FindNextToRun
+++// 	Return the next thread to be scheduled onto the CPU.
+++//	If there are no ready threads, return NULL.
+++// Side effect:
+++//	Thread is removed from the ready list.
++ //----------------------------------------------------------------------
++-Thread*
++-Scheduler::FindNextToRun() {
++-    ASSERT(kernel->interrupt->getLevel() == IntOff);
++-
++-    if (usePriorityScheduling) {
++-        return FindNextToRunPriority();
++-    }
++ 
++-    // Normal FIFO
++-    if (readyList->IsEmpty()) {
++-        return NULL;
++-    }
++-    return readyList->RemoveFront();
++-}
+++Thread *Scheduler::FindNextToRun() {
+++    ASSERT(kernel->interrupt->getLevel() == IntOff);
++ 
++-//----------------------------------------------------------------------
++-// Scheduler::FindNextToRunPriority
++-//      Scan list and pick thread with highest priority
++-//----------------------------------------------------------------------
++-Thread*
++-Scheduler::FindNextToRunPriority() {
++     if (readyList->IsEmpty()) {
++         return NULL;
+++    } else {
+++        return readyList->RemoveFront();
++     }
++-
++-    Thread *best = NULL;
++-    int highest = -1;
++-
++-    ListIterator<Thread*> iter(readyList);
++-    while (!iter.IsDone()) {
++-        Thread *t = iter.Item();
++-        int p = t->getPriority();
++-
++-        if (p > highest) {
++-            highest = p;
++-            best = t;
++-        }
++-        iter.Next();
++-    }
++-
++-    // Remove the selected thread
++-    readyList->Remove(best);
++-
++-    return best;
++ }
++ 
++ //----------------------------------------------------------------------
++ // Scheduler::Run
++-//----------------------------------------------------------------------
++-void
++-Scheduler::Run(Thread *nextThread, bool finishing) {
+++// 	Dispatch the CPU to nextThread.  Save the state of the old thread,
+++//	and load the state of the new thread, by calling the machine
+++//	dependent context switch routine, SWITCH.
+++//
+++//      Note: we assume the state of the previously running thread has
+++//	already been changed from running to blocked or ready (depending).
+++// Side effect:
+++//	The global variable kernel->currentThread becomes nextThread.
+++//
+++//	"nextThread" is the thread to be put into the CPU.
+++//	"finishing" is set if the current thread is to be deleted
+++//		once we're no longer running on its stack
+++//		(when the next thread starts running)
+++//----------------------------------------------------------------------
+++
+++void Scheduler::Run(Thread *nextThread, bool finishing) {
++     Thread *oldThread = kernel->currentThread;
+++
++     ASSERT(kernel->interrupt->getLevel() == IntOff);
++ 
++-    if (finishing) {
+++    if (finishing) {  // mark that we need to delete current thread
++         ASSERT(toBeDestroyed == NULL);
++         toBeDestroyed = oldThread;
++     }
++ 
++-    if (oldThread->space != NULL) {
++-        oldThread->SaveUserState();
+++    if (oldThread->space != NULL) {  // if this thread is a user program,
+++        oldThread->SaveUserState();  // save the user's CPU registers
++         oldThread->space->SaveState();
++     }
++ 
++-    oldThread->CheckOverflow();
+++    oldThread->CheckOverflow();  // check if the old thread
+++                                 // had an undetected stack overflow
+++
+++    kernel->currentThread = nextThread;  // switch to the next thread
+++    nextThread->setStatus(RUNNING);      // nextThread is now running
++ 
++-    kernel->currentThread = nextThread;
++-    nextThread->setStatus(RUNNING);
+++    DEBUG(dbgThread, "Switching from: " << oldThread->getName()
+++                                        << " to: " << nextThread->getName());
++ 
++-    DEBUG(dbgThread,
++-          "Switching from: " << oldThread->getName()
++-          << " to: " << nextThread->getName());
+++    // This is a machine-dependent assembly language routine defined
+++    // in switch.s.  You may have to think
+++    // a bit to figure out what happens after this, both from the point
+++    // of view of the thread and from the perspective of the "outside world".
++ 
++     SWITCH(oldThread, nextThread);
++ 
+++    // we're back, running oldThread
+++
+++    // interrupts are off when we return from switch!
++     ASSERT(kernel->interrupt->getLevel() == IntOff);
++ 
++     DEBUG(dbgThread, "Now in thread: " << oldThread->getName());
++ 
++-    CheckToBeDestroyed();
+++    CheckToBeDestroyed();  // check if thread we were running
+++                           // before this one has finished
+++                           // and needs to be cleaned up
++ 
++-    if (oldThread->space != NULL) {
++-        oldThread->RestoreUserState();
+++    if (oldThread->space != NULL) {     // if there is an address space
+++        oldThread->RestoreUserState();  // to restore, do it.
++         oldThread->space->RestoreState();
++     }
++ }
++ 
++ //----------------------------------------------------------------------
++ // Scheduler::CheckToBeDestroyed
+++// 	If the old thread gave up the processor because it was finishing,
+++// 	we need to delete its carcass.  Note we cannot delete the thread
+++// 	before now (for example, in Thread::Finish()), because up to this
+++// 	point, we were still running on the old thread's stack!
++ //----------------------------------------------------------------------
++-void
++-Scheduler::CheckToBeDestroyed() {
+++
+++void Scheduler::CheckToBeDestroyed() {
++     if (toBeDestroyed != NULL) {
++         delete toBeDestroyed;
++         toBeDestroyed = NULL;
++@@ -153,21 +157,10 @@ Scheduler::CheckToBeDestroyed() {
++ 
++ //----------------------------------------------------------------------
++ // Scheduler::Print
+++// 	Print the scheduler state -- in other words, the contents of
+++//	the ready list.  For debugging.
++ //----------------------------------------------------------------------
++-void
++-Scheduler::Print() {
++-    cout << "Ready list contents" 
++-         << (usePriorityScheduling ? " (priority mode)" : " (FIFO mode)")
++-         << ":\n";
++-
++-    ListIterator<Thread*> iter(readyList);
++-    while (!iter.IsDone()) {
++-        Thread* t = iter.Item();
++-        cout << "  " << t->getName();
++-        if (usePriorityScheduling) {
++-            cout << " (prio " << t->getPriority() << ")";
++-        }
++-        cout << "\n";
++-        iter.Next();
++-    }
++-}
++\ No newline at end of file
+++void Scheduler::Print() {
+++    cout << "Ready list contents:\n";
+++    readyList->Apply(ThreadPrint);
+++}
++diff --git a/nachos-project-master/code/threads/scheduler.h b/nachos-project-master/code/threads/scheduler.h
++index 9e34f92..a96f228 100644
++--- a/nachos-project-master/code/threads/scheduler.h
+++++ b/nachos-project-master/code/threads/scheduler.h
++@@ -1,3 +1,11 @@
+++// scheduler.h
+++//	Data structures for the thread dispatcher and scheduler.
+++//	Primarily, the list of threads that are ready to run.
+++//
+++// Copyright (c) 1992-1996 The Regents of the University of California.
+++// All rights reserved.  See copyright.h for copyright notice and limitation
+++// of liability and disclaimer of warranty provisions.
+++
++ #ifndef SCHEDULER_H
++ #define SCHEDULER_H
++ 
++@@ -5,26 +13,32 @@
++ #include "list.h"
++ #include "thread.h"
++ 
+++// The following class defines the scheduler/dispatcher abstraction --
+++// the data structures and operations needed to keep track of which
+++// thread is running, and which threads are ready but not running.
+++
++ class Scheduler {
++-public:
++-    Scheduler();
++-    ~Scheduler();
+++   public:
+++    Scheduler();   // Initialize list of ready threads
+++    ~Scheduler();  // De-allocate ready list
++ 
++     void ReadyToRun(Thread* thread);
++-    Thread* FindNextToRun();
+++    // Thread can be dispatched.
+++    Thread* FindNextToRun();  // Dequeue first thread on the ready
+++                              // list, if any, and return thread.
++     void Run(Thread* nextThread, bool finishing);
++-    void CheckToBeDestroyed();
++-    void Print();
++-
++-    void EnablePriorityScheduling(bool enable);
++-    void ReadyToRunPriority(Thread* thread);
+++    // Cause nextThread to start running
+++    void CheckToBeDestroyed();  // Check if thread that had been
+++                                // running needs to be deleted
+++    void Print();               // Print contents of ready list
++ 
++-private:
++-    List<Thread*>* readyList;
++-    Thread* toBeDestroyed;
++-    bool usePriorityScheduling;
+++    // SelfTest for scheduler is implemented in class Thread
++ 
++-    Thread* FindNextToRunPriority();
+++   private:
+++    List<Thread*>* readyList;  // queue of threads that are ready to run,
+++                               // but not running
+++    Thread* toBeDestroyed;     // finishing thread to be destroyed
+++                               // by the next thread that runs
++ };
++ 
++-#endif
++\ No newline at end of file
+++#endif  // SCHEDULER_H
++diff --git a/nachos-project-master/code/threads/thread.h b/nachos-project-master/code/threads/thread.h
++index e5b3cf0..3fbf156 100644
++--- a/nachos-project-master/code/threads/thread.h
+++++ b/nachos-project-master/code/threads/thread.h
++@@ -90,10 +90,6 @@ class Thread {
++     int processID;
++     int parrentID;
++     int exitStatus;
++-    int getPriority() const { return priority; }
++-
++-    void setPriority(int p) { priority = p; }
++-
++     void FreeSpace() {
++         if (space != 0) delete space;
++     }
++@@ -123,7 +119,6 @@ class Thread {
++                           // (If NULL, don't deallocate stack)
++     ThreadStatus status;  // ready, running or blocked
++     char *name;
++-    int priority = 1;    // default priority = 1 (low)
++ 
++     void StackAllocate(VoidFunctionPtr func, void *arg);
++     // Allocate a stack for thread.
+diff --git a/Lab3.txt b/Lab3.txt
+new file mode 100644
+index 0000000..8ca919c
+--- /dev/null
++++ b/Lab3.txt
+@@ -0,0 +1,197 @@
++diff --git a/.vscode/settings.json b/.vscode/settings.json
++deleted file mode 100644
++index 70e34ec..0000000
++--- a/.vscode/settings.json
+++++ /dev/null
++@@ -1,3 +0,0 @@
++-{
++-    "C_Cpp.errorSquiggles": "disabled"
++-}
++\ No newline at end of file
++diff --git a/nachos-project-master/code/test/Makefile b/nachos-project-master/code/test/Makefile
++index 2adeb66..c2dd38f 100644
++--- a/nachos-project-master/code/test/Makefile
+++++ b/nachos-project-master/code/test/Makefile
++@@ -112,7 +112,7 @@ ifeq ($(hosttype),unknown)
++ PROGRAMS = unknownhost
++ else
++ # change this if you create a new test program!
++-PROGRAMS = add abs sleep halt shell matmult sort segments test_syscall num_io char_io random str_io ascii bubblesort help create_file open_file readwrite exec test_sem sinhvien voinuoc main
+++PROGRAMS = add abs halt shell matmult sort segments test_syscall num_io char_io random str_io ascii bubblesort help create_file open_file readwrite exec test_sem sinhvien voinuoc main
++ endif
++ 
++ all: $(PROGRAMS)
++@@ -133,10 +133,6 @@ abs: abs.o start.o
++ 	$(LD) $(LDFLAGS) start.o abs.o -o abs.coff
++ 	$(COFF2NOFF) abs.coff abs
++ 
++-sleep: sleep.o start.o
++-	$(LD) $(LDFLAGS) start.o sleep.o -o sleep.coff
++-	$(COFF2NOFF) sleep.coff sleep
++-
++ add.o: add.c
++ 	$(CC) $(CFLAGS) -c add.c
++ 
++diff --git a/nachos-project-master/code/test/sleep.c b/nachos-project-master/code/test/sleep.c
++deleted file mode 100644
++index 0d221d1..0000000
++--- a/nachos-project-master/code/test/sleep.c
+++++ /dev/null
++@@ -1,8 +0,0 @@
++-#include "syscall.h"
++-
++-int main() {
++-    PrintString("Starting sleep...\n");
++-    Sleep(100000);
++-    PrintString("Woke up after given number of ticks!\n");
++-    Halt();
++-}
++\ No newline at end of file
++diff --git a/nachos-project-master/code/threads/alarm.cc b/nachos-project-master/code/threads/alarm.cc
++index 53eb97a..ce30385 100644
++--- a/nachos-project-master/code/threads/alarm.cc
+++++ b/nachos-project-master/code/threads/alarm.cc
++@@ -40,38 +40,11 @@ Alarm::Alarm(bool doRandom) { timer = new Timer(doRandom, this); }
++ //      if we're currently running something (in other words, not idle).
++ //----------------------------------------------------------------------
++ 
++-void Alarm::WaitUntil(int x) {
++-    IntStatus oldLevel = kernel->interrupt->SetLevel(IntOff);
++-    
++-    SleepEntry* entry = new SleepEntry();
++-    entry->thread = kernel->currentThread;
++-    entry->wakeTime = kernel->stats->totalTicks + x;
++-    sleepQueue.Append(entry);
++-    
++-    kernel->currentThread->Sleep(false);
++-    (void)kernel->interrupt->SetLevel(oldLevel);
++-}
++-
++-
++ void Alarm::CallBack() {
++-    Interrupt* interrupt = kernel->interrupt;
+++    Interrupt *interrupt = kernel->interrupt;
++     MachineStatus status = interrupt->getStatus();
++-    int now = kernel->stats->totalTicks;
++ 
++-    // Wake threads whose time has come
++-    List<SleepEntry*> remaining;
++-    while (!sleepQueue.IsEmpty()) {
++-        SleepEntry* e = sleepQueue.RemoveFront();
++-        if (e->wakeTime <= now) {
++-            kernel->scheduler->ReadyToRun(e->thread);
++-            delete e;
++-        } else {
++-            remaining.Append(e);
++-        }
++-    }
++-    while (!remaining.IsEmpty())
++-        sleepQueue.Append(remaining.RemoveFront());
++-
++-    if (status != IdleMode)
+++    if (status != IdleMode) {
++         interrupt->YieldOnReturn();
++-}
++\ No newline at end of file
+++    }
+++}
++diff --git a/nachos-project-master/code/threads/alarm.h b/nachos-project-master/code/threads/alarm.h
++index 40252a4..af6dd02 100644
++--- a/nachos-project-master/code/threads/alarm.h
+++++ b/nachos-project-master/code/threads/alarm.h
++@@ -21,13 +21,6 @@
++ #include "utility.h"
++ #include "callback.h"
++ #include "timer.h"
++-#include "list.h"
++-#include "thread.h" 
++-
++-struct SleepEntry {
++-    Thread* thread;
++-    int wakeTime;
++-};
++ 
++ // The following class defines a software alarm clock.
++ class Alarm : public CallBackObj {
++@@ -41,7 +34,7 @@ class Alarm : public CallBackObj {
++ 
++    private:
++     Timer *timer;  // the hardware timer device
++-    List<SleepEntry*> sleepQueue;
+++
++     void CallBack();  // called when the hardware
++                       // timer generates an interrupt
++ };
++diff --git a/nachos-project-master/code/threads/prioritytest.cc b/nachos-project-master/code/threads/prioritytest.cc
++index 7d99d8e..9434a7f 100644
++--- a/nachos-project-master/code/threads/prioritytest.cc
+++++ b/nachos-project-master/code/threads/prioritytest.cc
++@@ -13,7 +13,7 @@ PriorityThread(void* arg)
++     for (int i = 0; i < 5; i++) {
++         printf("Thread %d running at tick %d\n",
++                id, kernel->stats->totalTicks);
++-        kernel->interrupt->OneTick();
+++        kernel->currentThread->Yield();
++     }
++ }
++ 
++diff --git a/nachos-project-master/code/userprog/exception.cc b/nachos-project-master/code/userprog/exception.cc
++index 946f724..b39d8e2 100644
++--- a/nachos-project-master/code/userprog/exception.cc
+++++ b/nachos-project-master/code/userprog/exception.cc
++@@ -169,12 +169,6 @@ void handle_SC_Abs() {
++     return move_program_counter();
++ }
++ 
++-void handle_SC_Sleep() {
++-    int ticks = kernel->machine->ReadRegister(4);
++-    SysSleep(ticks);
++-    return move_program_counter();
++-}
++-
++ void handle_SC_ReadNum() {
++     int result = SysReadNum();
++     kernel->machine->WriteRegister(2, result);
++@@ -444,8 +438,6 @@ void ExceptionHandler(ExceptionType which) {
++                     return handle_SC_Add();
++                 case SC_Abs:
++                     return handle_SC_Abs();
++-                case SC_Sleep:
++-                    return handle_SC_Sleep();
++                 case SC_ReadNum:
++                     return handle_SC_ReadNum();
++                 case SC_PrintNum:
++diff --git a/nachos-project-master/code/userprog/ksyscall.h b/nachos-project-master/code/userprog/ksyscall.h
++index 3ddef3c..a5436fc 100644
++--- a/nachos-project-master/code/userprog/ksyscall.h
+++++ b/nachos-project-master/code/userprog/ksyscall.h
++@@ -255,8 +255,4 @@ int SysSignal(char* name) {
++ 
++ int SysGetPid() { return kernel->currentThread->processID; }
++ 
++-void SysSleep(int ticks) {
++-    kernel->alarm->WaitUntil(ticks);
++-}
++-
++ #endif /* ! __USERPROG_KSYSCALL_H__ */
++diff --git a/nachos-project-master/code/userprog/syscall.h b/nachos-project-master/code/userprog/syscall.h
++index 56104c2..954b655 100644
++--- a/nachos-project-master/code/userprog/syscall.h
+++++ b/nachos-project-master/code/userprog/syscall.h
++@@ -49,7 +49,6 @@
++ #define SC_Signal 53
++ #define SC_GetPid 54
++ #define SC_Abs 55
++-#define SC_Sleep 56
++ 
++ #ifndef IN_ASM
++ 
++@@ -71,8 +70,6 @@ void Halt();
++  */
++ int Abs(int num);
++ 
++-void Sleep(int ticks);
++-
++ int Add(int op1, int op2);
++ 
++ int ReadNum();
+diff --git a/Lab5.txt b/Lab5.txt
+new file mode 100644
+index 0000000..f112bfc
+--- /dev/null
++++ b/Lab5.txt
+@@ -0,0 +1,1570 @@
++diff --git a/README.md b/README.md
++new file mode 100644
++index 0000000..5d1fabd
++--- /dev/null
+++++ b/README.md
++@@ -0,0 +1,15 @@
+++#Instructions 
+++test drectory -make clean
+++              -make
+++build.linux - make clean
+++            - make
+++            - ./nachos -x ../test/abs
+++            - ./nachos -x ../test/sleep
+++            - ./nachos -P
+++For syscalls  - Add c code in test
+++              - Then Makefile in test (2 parts) 
+++              - Then start.S in test
+++              - Then kyscall.h in userprog
+++              - Then syscall.h in userprog
+++              - Then exception.cc in userproq (2 parts)
+++              - Then files in threads, userprog, and other directories.
++diff --git a/nachos-project-master/code/build.linux/Makefile b/nachos-project-master/code/build.linux/Makefile
++index efd2473..1258b29 100644
++--- a/nachos-project-master/code/build.linux/Makefile
+++++ b/nachos-project-master/code/build.linux/Makefile
++@@ -1,196 +1,3 @@
++-# Copyright (c) 1992-1996 The Regents of the University of California.
++-# All rights reserved.  See copyright.h for copyright notice and limitation 
++-# of liability and disclaimer of warranty provisions.
++-#
++-# This is a GNU Makefile.  It must be used with the GNU make program.
++-# At UW, the GNU make program is /software/gnu/bin/make.
++-# In many other places it is known as "gmake".
++-# You may wish to include /software/gnu/bin/ early in your command
++-# search path, so that you will be using GNU make when you type "make".
++-#
++-# About this Makefile:
++-# --------------------
++-#
++-#  This Makefile is used to build the Nachos system, which includes
++-#   the MIPS machine simulation and a simple operating system.
++-#
++-#  There is a separate Makefile, in the "test" directory, that is
++-#   used to build the Nachos test programs (which run on the
++-#   simulated machine).
++-#
++-#  There are several "build" directories, one for each type
++-#   of machine in the MFCF computing environment
++-#   (build.solaris, build.sunos, and build.ultrix), as well
++-#   as a build directory for Linux (build.linux) and a generic
++-#   build directory (build.other) for those who wish to try
++-#   building Nachos on other platforms.
++-#
++-#  This Makefile appears to be located in all of the build directories.
++-#  If you edit it in one directory, the copies in all of the other
++-#  directories appear to change as well.  This is the desired behaviour,
++-#  since this file is machine independent.  (The file actually lives
++-#  in build.solaris, with symbolic links from the other build directories.)
++-#
++-#  The platform-dependent parts of make's instructions are located
++-#  in the file Makefile.dep.
++-#  There is a different Makefile.dep in each build directory.
++-#
++-#  If you are in the MFCF environment, you should not have to edit
++-#  the Makefile.dep files by hand.  Any changes to the make instructions
++-#  can be made in this file (see the instructions below) - they will
++-#  apply no matter where you build Nachos.
++-#  If you are not in the MFCF environment, e.g., if you are trying
++-#  to build Nachos on Linux at home, you will probably need
++-#  to edit Makefile.dep (in the appropriate build directory) to
++-#  customize the make procedure to your environment.
++-#
++-# How to build Nachos for the first time:
++-# ---------------------------------------
++-#
++-#   (1) Make sure than you are in the build directory for the
++-#	type of machine you are logged in to (the "host" machine):
++-#
++-#	host type	examples		build directory
++-# 	-----------	-----------		----------------
++-#
++-#	sparc/SunOS	cayley,napier,		build.sunos
++-#	(SunOS 4.1.3)	descartes
++-#
++-#	sparc/Solaris	picard.math,		build.solaris
++-#	(SunOS 5.x)	hermite.math,
++-#			markov.math,
++-#			hypatia.math,
++-#			hume.math
++-#
++-#	mips/ULTRIX	cantor.math		build.ultrix
++-#	(ULTRIX 4.2)	noether.math
++-#
++-#	If you are not sure what type of machine you are on,
++-#	try the command "uname -a".  
++-#
++-#   (2) Type "make depend"
++-#		- this computes file dependencies and records them
++-#			at the end of the file Makefile.dep in 
++-#			your build directory.  Have a look...
++-#
++-#   (3) Type "make nachos"  (or just "make").
++-#               - make echos the commands it is executing, so that
++-#			you can observe its progress.  When the
++-#			build is finished, you should have an
++-#			executable "nachos" in the build directory.
++-#
++-#   (4) There is no 4th step.  You are done.  Try running "./nachos -u".
++-#
++-#
++-# How to Re-build Nachos after you have changed the code:
++-#--------------------------------------------------------
++-#
++-#     - The Nachos source code is located in the code subdirectories:
++-#	  threads, userprog, filesys, network, and lib.  You may
++-#         change the files in any of these directories, and you can
++-#         add new files and/or remove files. The "machine" subdirectory
++-#	  contains the hardware simulation (which is also part of
++-#	  Nachos.  You may look at it, but
++-#	  you may not change it, except as noted in machine/machine.h
++-#     - When you want to re-make Nachos, always do it in the
++-#	  "build" directory that is appropriate for the machine
++-#	  type that you are running on.  
++-#	DO NOT TRY TO MAKE NACHOS IN THE SOURCE CODE DIRECTORIES.
++-#
++-#     - IF all you have done is changed C++ code in existing files
++-#	(since the last time you made Nachos in this build directory),
++-#	THEN all you need to do to re-make Nachos is to type
++-#
++-#		"make nachos"
++-#
++-#	in the build directory.
++-#
++-#     - IF you have done any of the following since the last build in
++-#	  this directory:
++-#		added new .cc files or new .h files
++-#		added or deleted #include's from existing files
++-#	THEN
++-#		you must do
++-#		"make depend"
++-#		followed by
++-#		"make nachos"
++-#
++-#	in the build directory.
++-#
++-#       Note that is is always safe to do "make depend" followed by
++-# 	"make nachos", so if you are not sure what changes you have
++-#	made, do "make depend".
++-#
++-#     - IF you have added new files (.cc or .h) since the last build,
++-#	you should edit this Makefile before running "make depend"
++-# 	and "make nachos".
++-
++-#	For new .h files, simply update the appropriate "_H" list below.
++-#       For example, if you create a file called
++-#       "bigfile.h" in the filesys subdirectory, you should add
++-#       "../filesys/bigfile.h" to FILESYS_H, which is defined below
++-
++-#	For new .cc files, update the appropriate "_C" and "_O" lists.
++-#       For example, if you create a file called "filetable.cc" in
++-#	the directory "userprog", you should add
++-#	"../userprog/filetable.cc" to USERPROG_C,
++-#       and you should add "filetable.o" to USERPROG_O.
++-#       Note that the entry in the "_C" list includes the subdirectory
++-#	name, while the entry on the "_O" list does not.
++-#
++-#  Some Important Notes:
++-#  ---------------------
++-#
++-#       *  You can clean up all of the .o and other files left behind
++-#	   by make by typeing "make clean" in the build directory.
++-#	*  You can clean up .o and other files, as well as the nachos
++-#	   executable, DISK, core, SOCKET, and other files by typing
++-#	   make "distclean"
++-#
++-#	These are good ways to save space, but the next build that
++-#	you do after cleaning will take longer than usual, since
++-#	much of the stuff you cleaned will need to be rebuilt.
++-#
++-#       *  When you build Nachos on an ULTRIX machine (in build.ultrix),
++-#	   you will get lots of warning messages like this:
++-#
++-#	openfile.o: does not have gp tables for all it's sectons
++-#
++-#	   from the loader.  Ignore them.  Or better yet, figure out
++-#	   how to make them go away.
++-#
++-#  The Most Important Note:
++-#  -----------------------
++-#
++-#	* If "make" is behaving strangely and you cannot figure out
++-#	why, you should REBUILD the program FROM SCRATCH.
++-#	Yes, it is slow.
++-#	But, there are lots of little things that can go wrong, especially
++-#	with all of these different types of machines available.
++-#	Rebuilding from scratch at least gives you a known starting
++-#	place.  To rebuild from scratch, go to the appropriate
++-#	build directory and do:
++-#	
++-#		make distclean
++-#		make depend
++-#		make nachos
++-#
++-################################################################
++-#  READ THIS:   CONFIGURING NACHOS
++-#
++-# Change DEFINES (below) to
++-#   DEFINES = -DUSE_TLB -DFILESYS_STUB
++-# if you want the simulated machine to use its TLB
++-#
++-# If you want to use the real Nachos file system (based on
++-# the simulated disk), rather than the stub, remove
++-# the -DFILESYS_STUB from DEFINES.
++-#
++-# There is a a fix to the MIPS simulator to enable it to properly
++-# handle unaligned data access.  This fix is enabled by the addition
++-# of "-DSIM_FIX" to the DEFINES.  This should be enabled by default
++-# and eventually will not require the symbol definition
++-################################################################
++ DEFINES =  -DFILESYS_STUB -DRDATA -DSIM_FIX
++ 
++ 
++@@ -294,13 +101,17 @@ THREAD_O = alarm.o kernel.o main.o scheduler.o synch.o thread.o ptable.o pcb.o s
++ USERPROG_H = ../userprog/addrspace.h\
++ 	../userprog/syscall.h\
++ 	../userprog/synchconsole.h\
++-	../userprog/noff.h
+++	../userprog/noff.h\
+++	../userprog/pipe.h\
+++    ../userprog/pipetable.h
++ 
++ USERPROG_C = ../userprog/addrspace.cc\
++ 	../userprog/exception.cc\
++-	../userprog/synchconsole.cc
+++	../userprog/synchconsole.cc\
+++	../userprog/pipe.cc\
+++    ../userprog/pipetable.cc
++ 
++-USERPROG_O = addrspace.o exception.o synchconsole.o
+++USERPROG_O = addrspace.o exception.o synchconsole.o pipe.o pipetable.o
++ 
++ FILESYS_H =../filesys/directory.h \
++ 	../filesys/filehdr.h\
++diff --git a/nachos-project-master/code/build.linux/Makefile.dep b/nachos-project-master/code/build.linux/Makefile.dep
++index fdf2725..81b293a 100644
++--- a/nachos-project-master/code/build.linux/Makefile.dep
+++++ b/nachos-project-master/code/build.linux/Makefile.dep
++@@ -2066,8 +2066,8 @@ disk.o: ../machine/disk.cc /usr/include/stdc-predef.h ../lib/copyright.h \
++  ../threads/pcb.h
++ alarm.o: ../threads/alarm.cc /usr/include/stdc-predef.h \
++  ../lib/copyright.h ../threads/alarm.h ../lib/utility.h \
++- ../machine/callback.h ../machine/timer.h ../threads/main.h \
++- ../lib/debug.h ../lib/sysdep.h /usr/include/c++/11/iostream \
+++ ../machine/callback.h ../machine/timer.h ../lib/list.h ../lib/debug.h \
+++ ../lib/sysdep.h /usr/include/c++/11/iostream \
++  /usr/include/x86_64-linux-gnu/c++/11/bits/c++config.h \
++  /usr/include/x86_64-linux-gnu/c++/11/bits/os_defines.h \
++  /usr/include/features.h /usr/include/features-time64.h \
++@@ -2213,12 +2213,12 @@ alarm.o: ../threads/alarm.cc /usr/include/stdc-predef.h \
++  /usr/include/c++/11/bits/basic_ios.tcc \
++  /usr/include/c++/11/bits/ostream.tcc /usr/include/c++/11/istream \
++  /usr/include/c++/11/bits/istream.tcc /usr/include/c++/11/stdlib.h \
++- /usr/include/string.h /usr/include/strings.h ../threads/kernel.h \
+++ /usr/include/string.h /usr/include/strings.h ../lib/list.cc \
++  ../threads/thread.h ../machine/machine.h ../machine/translate.h \
++  ../userprog/addrspace.h ../filesys/filesys.h ../filesys/openfile.h \
++- ../filesys/filetable.h ../threads/scheduler.h ../lib/list.h \
++- ../lib/list.cc ../machine/interrupt.h ../machine/stats.h ../lib/bitmap.h \
++- ../threads/stable.h ../threads/sem.h ../threads/ptable.h \
+++ ../filesys/filetable.h ../threads/main.h ../threads/kernel.h \
+++ ../threads/scheduler.h ../machine/interrupt.h ../machine/stats.h \
+++ ../lib/bitmap.h ../threads/stable.h ../threads/sem.h ../threads/ptable.h \
++  ../threads/pcb.h
++ kernel.o: ../threads/kernel.cc /usr/include/stdc-predef.h \
++  ../lib/copyright.h ../lib/debug.h ../lib/utility.h ../lib/sysdep.h \
++@@ -2378,7 +2378,8 @@ kernel.o: ../threads/kernel.cc /usr/include/stdc-predef.h \
++  ../threads/ptable.h ../threads/pcb.h ../threads/synch.h \
++  ../threads/synchlist.h ../threads/synchlist.cc ../lib/libtest.h \
++  ../userprog/synchconsole.h ../machine/console.h ../filesys/synchdisk.h \
++- ../machine/disk.h ../network/post.h ../machine/network.h
+++ ../machine/disk.h ../network/post.h ../machine/network.h \
+++ ../userprog/pipetable.h ../userprog/pipe.h
++ main.o: ../threads/main.cc /usr/include/stdc-predef.h ../lib/copyright.h \
++  ../threads/main.h ../lib/debug.h ../lib/utility.h ../lib/sysdep.h \
++  /usr/include/c++/11/iostream \
++@@ -4252,7 +4253,8 @@ exception.o: ../userprog/exception.cc /usr/include/stdc-predef.h \
++  ../threads/stable.h ../threads/sem.h ../threads/ptable.h \
++  ../threads/pcb.h ../userprog/syscall.h ../userprog/errno.h \
++  ../userprog/ksyscall.h ../userprog/synchconsole.h ../machine/console.h \
++- ../threads/synch.h ../userprog/ksyscallhelper.h
+++ ../threads/synch.h ../userprog/ksyscallhelper.h ../userprog/pipe.h \
+++ ../userprog/pipetable.h
++ synchconsole.o: ../userprog/synchconsole.cc /usr/include/stdc-predef.h \
++  ../lib/copyright.h ../userprog/synchconsole.h ../lib/utility.h \
++  ../machine/callback.h ../machine/console.h ../threads/synch.h \
++@@ -4410,6 +4412,319 @@ synchconsole.o: ../userprog/synchconsole.cc /usr/include/stdc-predef.h \
++  ../threads/alarm.h ../machine/timer.h ../lib/bitmap.h \
++  ../threads/stable.h ../threads/sem.h ../threads/ptable.h \
++  ../threads/pcb.h
+++pipe.o: ../userprog/pipe.cc /usr/include/stdc-predef.h ../userprog/pipe.h \
+++ ../threads/synch.h ../lib/copyright.h ../threads/thread.h \
+++ ../lib/utility.h ../lib/sysdep.h /usr/include/c++/11/iostream \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/c++config.h \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/os_defines.h \
+++ /usr/include/features.h /usr/include/features-time64.h \
+++ /usr/include/x86_64-linux-gnu/bits/wordsize.h \
+++ /usr/include/x86_64-linux-gnu/bits/timesize.h \
+++ /usr/include/x86_64-linux-gnu/sys/cdefs.h \
+++ /usr/include/x86_64-linux-gnu/bits/long-double.h \
+++ /usr/include/x86_64-linux-gnu/gnu/stubs.h \
+++ /usr/include/x86_64-linux-gnu/gnu/stubs-64.h \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/cpu_defines.h \
+++ /usr/include/c++/11/pstl/pstl_config.h /usr/include/c++/11/ostream \
+++ /usr/include/c++/11/ios /usr/include/c++/11/iosfwd \
+++ /usr/include/c++/11/bits/stringfwd.h \
+++ /usr/include/c++/11/bits/memoryfwd.h /usr/include/c++/11/bits/postypes.h \
+++ /usr/include/c++/11/cwchar /usr/include/wchar.h \
+++ /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
+++ /usr/include/x86_64-linux-gnu/bits/floatn.h \
+++ /usr/include/x86_64-linux-gnu/bits/floatn-common.h \
+++ /usr/lib/gcc/x86_64-linux-gnu/11/include/stddef.h \
+++ /usr/lib/gcc/x86_64-linux-gnu/11/include/stdarg.h \
+++ /usr/include/x86_64-linux-gnu/bits/wchar.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/wint_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/mbstate_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/__mbstate_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/__FILE.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/FILE.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
+++ /usr/include/c++/11/exception /usr/include/c++/11/bits/exception.h \
+++ /usr/include/c++/11/bits/exception_ptr.h \
+++ /usr/include/c++/11/bits/exception_defines.h \
+++ /usr/include/c++/11/bits/cxxabi_init_exception.h \
+++ /usr/include/c++/11/typeinfo /usr/include/c++/11/bits/hash_bytes.h \
+++ /usr/include/c++/11/new /usr/include/c++/11/bits/move.h \
+++ /usr/include/c++/11/type_traits \
+++ /usr/include/c++/11/bits/nested_exception.h \
+++ /usr/include/c++/11/bits/char_traits.h \
+++ /usr/include/c++/11/bits/stl_algobase.h \
+++ /usr/include/c++/11/bits/functexcept.h \
+++ /usr/include/c++/11/bits/cpp_type_traits.h \
+++ /usr/include/c++/11/ext/type_traits.h \
+++ /usr/include/c++/11/ext/numeric_traits.h \
+++ /usr/include/c++/11/bits/stl_pair.h \
+++ /usr/include/c++/11/bits/stl_iterator_base_types.h \
+++ /usr/include/c++/11/bits/stl_iterator_base_funcs.h \
+++ /usr/include/c++/11/bits/concept_check.h \
+++ /usr/include/c++/11/debug/assertions.h \
+++ /usr/include/c++/11/bits/stl_iterator.h \
+++ /usr/include/c++/11/bits/ptr_traits.h /usr/include/c++/11/debug/debug.h \
+++ /usr/include/c++/11/bits/predefined_ops.h /usr/include/c++/11/cstdint \
+++ /usr/lib/gcc/x86_64-linux-gnu/11/include/stdint.h /usr/include/stdint.h \
+++ /usr/include/x86_64-linux-gnu/bits/types.h \
+++ /usr/include/x86_64-linux-gnu/bits/typesizes.h \
+++ /usr/include/x86_64-linux-gnu/bits/time64.h \
+++ /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
+++ /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
+++ /usr/include/c++/11/bits/localefwd.h \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/c++locale.h \
+++ /usr/include/c++/11/clocale /usr/include/locale.h \
+++ /usr/include/x86_64-linux-gnu/bits/locale.h /usr/include/c++/11/cctype \
+++ /usr/include/ctype.h /usr/include/x86_64-linux-gnu/bits/endian.h \
+++ /usr/include/x86_64-linux-gnu/bits/endianness.h \
+++ /usr/include/c++/11/bits/ios_base.h /usr/include/c++/11/ext/atomicity.h \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/gthr.h \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/gthr-default.h \
+++ /usr/include/pthread.h /usr/include/sched.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/time_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/struct_timespec.h \
+++ /usr/include/x86_64-linux-gnu/bits/sched.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/struct_sched_param.h \
+++ /usr/include/x86_64-linux-gnu/bits/cpu-set.h /usr/include/time.h \
+++ /usr/include/x86_64-linux-gnu/bits/time.h \
+++ /usr/include/x86_64-linux-gnu/bits/timex.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/clock_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/struct_tm.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/clockid_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/timer_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h \
+++ /usr/include/x86_64-linux-gnu/bits/pthreadtypes.h \
+++ /usr/include/x86_64-linux-gnu/bits/thread-shared-types.h \
+++ /usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h \
+++ /usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h \
+++ /usr/include/x86_64-linux-gnu/bits/struct_mutex.h \
+++ /usr/include/x86_64-linux-gnu/bits/struct_rwlock.h \
+++ /usr/include/x86_64-linux-gnu/bits/setjmp.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h \
+++ /usr/include/x86_64-linux-gnu/bits/pthread_stack_min-dynamic.h \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/atomic_word.h \
+++ /usr/include/x86_64-linux-gnu/sys/single_threaded.h \
+++ /usr/include/c++/11/bits/locale_classes.h /usr/include/c++/11/string \
+++ /usr/include/c++/11/bits/allocator.h \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/c++allocator.h \
+++ /usr/include/c++/11/ext/new_allocator.h \
+++ /usr/include/c++/11/bits/ostream_insert.h \
+++ /usr/include/c++/11/bits/cxxabi_forced.h \
+++ /usr/include/c++/11/bits/stl_function.h \
+++ /usr/include/c++/11/backward/binders.h \
+++ /usr/include/c++/11/bits/range_access.h \
+++ /usr/include/c++/11/initializer_list \
+++ /usr/include/c++/11/bits/basic_string.h \
+++ /usr/include/c++/11/ext/alloc_traits.h \
+++ /usr/include/c++/11/bits/alloc_traits.h \
+++ /usr/include/c++/11/bits/stl_construct.h /usr/include/c++/11/string_view \
+++ /usr/include/c++/11/bits/functional_hash.h \
+++ /usr/include/c++/11/bits/string_view.tcc \
+++ /usr/include/c++/11/ext/string_conversions.h /usr/include/c++/11/cstdlib \
+++ /usr/include/stdlib.h /usr/include/x86_64-linux-gnu/bits/waitflags.h \
+++ /usr/include/x86_64-linux-gnu/bits/waitstatus.h \
+++ /usr/include/x86_64-linux-gnu/sys/types.h /usr/include/endian.h \
+++ /usr/include/x86_64-linux-gnu/bits/byteswap.h \
+++ /usr/include/x86_64-linux-gnu/bits/uintn-identity.h \
+++ /usr/include/x86_64-linux-gnu/sys/select.h \
+++ /usr/include/x86_64-linux-gnu/bits/select.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/sigset_t.h \
+++ /usr/include/alloca.h /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
+++ /usr/include/c++/11/bits/std_abs.h /usr/include/c++/11/cstdio \
+++ /usr/include/stdio.h /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/struct_FILE.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/cookie_io_functions_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/stdio_lim.h \
+++ /usr/include/c++/11/cerrno /usr/include/errno.h \
+++ /usr/include/x86_64-linux-gnu/bits/errno.h /usr/include/linux/errno.h \
+++ /usr/include/x86_64-linux-gnu/asm/errno.h \
+++ /usr/include/asm-generic/errno.h /usr/include/asm-generic/errno-base.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/error_t.h \
+++ /usr/include/c++/11/bits/charconv.h \
+++ /usr/include/c++/11/bits/basic_string.tcc \
+++ /usr/include/c++/11/bits/locale_classes.tcc \
+++ /usr/include/c++/11/system_error \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/error_constants.h \
+++ /usr/include/c++/11/stdexcept /usr/include/c++/11/streambuf \
+++ /usr/include/c++/11/bits/streambuf.tcc \
+++ /usr/include/c++/11/bits/basic_ios.h \
+++ /usr/include/c++/11/bits/locale_facets.h /usr/include/c++/11/cwctype \
+++ /usr/include/wctype.h /usr/include/x86_64-linux-gnu/bits/wctype-wchar.h \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/ctype_base.h \
+++ /usr/include/c++/11/bits/streambuf_iterator.h \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/ctype_inline.h \
+++ /usr/include/c++/11/bits/locale_facets.tcc \
+++ /usr/include/c++/11/bits/basic_ios.tcc \
+++ /usr/include/c++/11/bits/ostream.tcc /usr/include/c++/11/istream \
+++ /usr/include/c++/11/bits/istream.tcc /usr/include/c++/11/stdlib.h \
+++ /usr/include/string.h /usr/include/strings.h ../machine/machine.h \
+++ ../machine/translate.h ../userprog/addrspace.h ../filesys/filesys.h \
+++ ../filesys/openfile.h ../filesys/filetable.h ../lib/list.h \
+++ ../lib/debug.h ../lib/list.cc ../threads/main.h ../threads/kernel.h \
+++ ../threads/scheduler.h ../machine/interrupt.h ../machine/callback.h \
+++ ../machine/stats.h ../threads/alarm.h ../machine/timer.h ../lib/bitmap.h \
+++ ../threads/stable.h ../threads/sem.h ../threads/ptable.h \
+++ ../threads/pcb.h
+++pipetable.o: ../userprog/pipetable.cc /usr/include/stdc-predef.h \
+++ ../userprog/pipetable.h ../userprog/pipe.h ../threads/synch.h \
+++ ../lib/copyright.h ../threads/thread.h ../lib/utility.h ../lib/sysdep.h \
+++ /usr/include/c++/11/iostream \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/c++config.h \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/os_defines.h \
+++ /usr/include/features.h /usr/include/features-time64.h \
+++ /usr/include/x86_64-linux-gnu/bits/wordsize.h \
+++ /usr/include/x86_64-linux-gnu/bits/timesize.h \
+++ /usr/include/x86_64-linux-gnu/sys/cdefs.h \
+++ /usr/include/x86_64-linux-gnu/bits/long-double.h \
+++ /usr/include/x86_64-linux-gnu/gnu/stubs.h \
+++ /usr/include/x86_64-linux-gnu/gnu/stubs-64.h \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/cpu_defines.h \
+++ /usr/include/c++/11/pstl/pstl_config.h /usr/include/c++/11/ostream \
+++ /usr/include/c++/11/ios /usr/include/c++/11/iosfwd \
+++ /usr/include/c++/11/bits/stringfwd.h \
+++ /usr/include/c++/11/bits/memoryfwd.h /usr/include/c++/11/bits/postypes.h \
+++ /usr/include/c++/11/cwchar /usr/include/wchar.h \
+++ /usr/include/x86_64-linux-gnu/bits/libc-header-start.h \
+++ /usr/include/x86_64-linux-gnu/bits/floatn.h \
+++ /usr/include/x86_64-linux-gnu/bits/floatn-common.h \
+++ /usr/lib/gcc/x86_64-linux-gnu/11/include/stddef.h \
+++ /usr/lib/gcc/x86_64-linux-gnu/11/include/stdarg.h \
+++ /usr/include/x86_64-linux-gnu/bits/wchar.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/wint_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/mbstate_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/__mbstate_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/__FILE.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/FILE.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
+++ /usr/include/c++/11/exception /usr/include/c++/11/bits/exception.h \
+++ /usr/include/c++/11/bits/exception_ptr.h \
+++ /usr/include/c++/11/bits/exception_defines.h \
+++ /usr/include/c++/11/bits/cxxabi_init_exception.h \
+++ /usr/include/c++/11/typeinfo /usr/include/c++/11/bits/hash_bytes.h \
+++ /usr/include/c++/11/new /usr/include/c++/11/bits/move.h \
+++ /usr/include/c++/11/type_traits \
+++ /usr/include/c++/11/bits/nested_exception.h \
+++ /usr/include/c++/11/bits/char_traits.h \
+++ /usr/include/c++/11/bits/stl_algobase.h \
+++ /usr/include/c++/11/bits/functexcept.h \
+++ /usr/include/c++/11/bits/cpp_type_traits.h \
+++ /usr/include/c++/11/ext/type_traits.h \
+++ /usr/include/c++/11/ext/numeric_traits.h \
+++ /usr/include/c++/11/bits/stl_pair.h \
+++ /usr/include/c++/11/bits/stl_iterator_base_types.h \
+++ /usr/include/c++/11/bits/stl_iterator_base_funcs.h \
+++ /usr/include/c++/11/bits/concept_check.h \
+++ /usr/include/c++/11/debug/assertions.h \
+++ /usr/include/c++/11/bits/stl_iterator.h \
+++ /usr/include/c++/11/bits/ptr_traits.h /usr/include/c++/11/debug/debug.h \
+++ /usr/include/c++/11/bits/predefined_ops.h /usr/include/c++/11/cstdint \
+++ /usr/lib/gcc/x86_64-linux-gnu/11/include/stdint.h /usr/include/stdint.h \
+++ /usr/include/x86_64-linux-gnu/bits/types.h \
+++ /usr/include/x86_64-linux-gnu/bits/typesizes.h \
+++ /usr/include/x86_64-linux-gnu/bits/time64.h \
+++ /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
+++ /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
+++ /usr/include/c++/11/bits/localefwd.h \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/c++locale.h \
+++ /usr/include/c++/11/clocale /usr/include/locale.h \
+++ /usr/include/x86_64-linux-gnu/bits/locale.h /usr/include/c++/11/cctype \
+++ /usr/include/ctype.h /usr/include/x86_64-linux-gnu/bits/endian.h \
+++ /usr/include/x86_64-linux-gnu/bits/endianness.h \
+++ /usr/include/c++/11/bits/ios_base.h /usr/include/c++/11/ext/atomicity.h \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/gthr.h \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/gthr-default.h \
+++ /usr/include/pthread.h /usr/include/sched.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/time_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/struct_timespec.h \
+++ /usr/include/x86_64-linux-gnu/bits/sched.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/struct_sched_param.h \
+++ /usr/include/x86_64-linux-gnu/bits/cpu-set.h /usr/include/time.h \
+++ /usr/include/x86_64-linux-gnu/bits/time.h \
+++ /usr/include/x86_64-linux-gnu/bits/timex.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/clock_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/struct_tm.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/clockid_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/timer_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h \
+++ /usr/include/x86_64-linux-gnu/bits/pthreadtypes.h \
+++ /usr/include/x86_64-linux-gnu/bits/thread-shared-types.h \
+++ /usr/include/x86_64-linux-gnu/bits/pthreadtypes-arch.h \
+++ /usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h \
+++ /usr/include/x86_64-linux-gnu/bits/struct_mutex.h \
+++ /usr/include/x86_64-linux-gnu/bits/struct_rwlock.h \
+++ /usr/include/x86_64-linux-gnu/bits/setjmp.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/__sigset_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h \
+++ /usr/include/x86_64-linux-gnu/bits/pthread_stack_min-dynamic.h \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/atomic_word.h \
+++ /usr/include/x86_64-linux-gnu/sys/single_threaded.h \
+++ /usr/include/c++/11/bits/locale_classes.h /usr/include/c++/11/string \
+++ /usr/include/c++/11/bits/allocator.h \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/c++allocator.h \
+++ /usr/include/c++/11/ext/new_allocator.h \
+++ /usr/include/c++/11/bits/ostream_insert.h \
+++ /usr/include/c++/11/bits/cxxabi_forced.h \
+++ /usr/include/c++/11/bits/stl_function.h \
+++ /usr/include/c++/11/backward/binders.h \
+++ /usr/include/c++/11/bits/range_access.h \
+++ /usr/include/c++/11/initializer_list \
+++ /usr/include/c++/11/bits/basic_string.h \
+++ /usr/include/c++/11/ext/alloc_traits.h \
+++ /usr/include/c++/11/bits/alloc_traits.h \
+++ /usr/include/c++/11/bits/stl_construct.h /usr/include/c++/11/string_view \
+++ /usr/include/c++/11/bits/functional_hash.h \
+++ /usr/include/c++/11/bits/string_view.tcc \
+++ /usr/include/c++/11/ext/string_conversions.h /usr/include/c++/11/cstdlib \
+++ /usr/include/stdlib.h /usr/include/x86_64-linux-gnu/bits/waitflags.h \
+++ /usr/include/x86_64-linux-gnu/bits/waitstatus.h \
+++ /usr/include/x86_64-linux-gnu/sys/types.h /usr/include/endian.h \
+++ /usr/include/x86_64-linux-gnu/bits/byteswap.h \
+++ /usr/include/x86_64-linux-gnu/bits/uintn-identity.h \
+++ /usr/include/x86_64-linux-gnu/sys/select.h \
+++ /usr/include/x86_64-linux-gnu/bits/select.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/sigset_t.h \
+++ /usr/include/alloca.h /usr/include/x86_64-linux-gnu/bits/stdlib-float.h \
+++ /usr/include/c++/11/bits/std_abs.h /usr/include/c++/11/cstdio \
+++ /usr/include/stdio.h /usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/struct_FILE.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/cookie_io_functions_t.h \
+++ /usr/include/x86_64-linux-gnu/bits/stdio_lim.h \
+++ /usr/include/c++/11/cerrno /usr/include/errno.h \
+++ /usr/include/x86_64-linux-gnu/bits/errno.h /usr/include/linux/errno.h \
+++ /usr/include/x86_64-linux-gnu/asm/errno.h \
+++ /usr/include/asm-generic/errno.h /usr/include/asm-generic/errno-base.h \
+++ /usr/include/x86_64-linux-gnu/bits/types/error_t.h \
+++ /usr/include/c++/11/bits/charconv.h \
+++ /usr/include/c++/11/bits/basic_string.tcc \
+++ /usr/include/c++/11/bits/locale_classes.tcc \
+++ /usr/include/c++/11/system_error \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/error_constants.h \
+++ /usr/include/c++/11/stdexcept /usr/include/c++/11/streambuf \
+++ /usr/include/c++/11/bits/streambuf.tcc \
+++ /usr/include/c++/11/bits/basic_ios.h \
+++ /usr/include/c++/11/bits/locale_facets.h /usr/include/c++/11/cwctype \
+++ /usr/include/wctype.h /usr/include/x86_64-linux-gnu/bits/wctype-wchar.h \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/ctype_base.h \
+++ /usr/include/c++/11/bits/streambuf_iterator.h \
+++ /usr/include/x86_64-linux-gnu/c++/11/bits/ctype_inline.h \
+++ /usr/include/c++/11/bits/locale_facets.tcc \
+++ /usr/include/c++/11/bits/basic_ios.tcc \
+++ /usr/include/c++/11/bits/ostream.tcc /usr/include/c++/11/istream \
+++ /usr/include/c++/11/bits/istream.tcc /usr/include/c++/11/stdlib.h \
+++ /usr/include/string.h /usr/include/strings.h ../machine/machine.h \
+++ ../machine/translate.h ../userprog/addrspace.h ../filesys/filesys.h \
+++ ../filesys/openfile.h ../filesys/filetable.h ../lib/list.h \
+++ ../lib/debug.h ../lib/list.cc ../threads/main.h ../threads/kernel.h \
+++ ../threads/scheduler.h ../machine/interrupt.h ../machine/callback.h \
+++ ../machine/stats.h ../threads/alarm.h ../machine/timer.h ../lib/bitmap.h \
+++ ../threads/stable.h ../threads/sem.h ../threads/ptable.h \
+++ ../threads/pcb.h
++ directory.o: ../filesys/directory.cc /usr/include/stdc-predef.h \
++  ../lib/copyright.h ../lib/utility.h ../filesys/filehdr.h \
++  ../machine/disk.h ../machine/callback.h ../filesys/pbitmap.h \
++diff --git a/nachos-project-master/code/test/Makefile b/nachos-project-master/code/test/Makefile
++index 2adeb66..0182897 100644
++--- a/nachos-project-master/code/test/Makefile
+++++ b/nachos-project-master/code/test/Makefile
++@@ -112,7 +112,7 @@ ifeq ($(hosttype),unknown)
++ PROGRAMS = unknownhost
++ else
++ # change this if you create a new test program!
++-PROGRAMS = add abs sleep halt shell matmult sort segments test_syscall num_io char_io random str_io ascii bubblesort help create_file open_file readwrite exec test_sem sinhvien voinuoc main
+++PROGRAMS = add abs pipetest sleep halt shell matmult sort segments test_syscall num_io char_io random str_io ascii bubblesort help create_file open_file readwrite exec test_sem sinhvien voinuoc main
++ endif
++ 
++ all: $(PROGRAMS)
++@@ -133,6 +133,16 @@ abs: abs.o start.o
++ 	$(LD) $(LDFLAGS) start.o abs.o -o abs.coff
++ 	$(COFF2NOFF) abs.coff abs
++ 
+++pipetest.o: pipetest.c
+++	$(CC) $(CFLAGS) -c pipetest.c
+++
+++pipetest: pipetest.o start.o
+++	$(LD) $(LDFLAGS) start.o pipetest.o -o pipetest.coff
+++	$(COFF2NOFF) pipetest.coff pipetest
+++
+++sleep.o: sleep.c
+++	$(CC) $(CFLAGS) -c sleep.c
+++
++ sleep: sleep.o start.o
++ 	$(LD) $(LDFLAGS) start.o sleep.o -o sleep.coff
++ 	$(COFF2NOFF) sleep.coff sleep
++diff --git a/nachos-project-master/code/test/pipetest.c b/nachos-project-master/code/test/pipetest.c
++new file mode 100644
++index 0000000..6ddd36f
++--- /dev/null
+++++ b/nachos-project-master/code/test/pipetest.c
++@@ -0,0 +1,49 @@
+++/* test/pipetest.c
+++ * Tests the Pipe system call.
+++ * Written in C89 style (all declarations before statements)
+++ * to be compatible with gcc 2.95.2 used by the NachOS cross-compiler.
+++ */
+++
+++#include "syscall.h"
+++
+++#define BUFSIZE 64
+++
+++int main()
+++{
+++    /* ALL declarations must come first in C89 */
+++    int readFD;
+++    int writeFD;
+++    int written;
+++    int bytesRead;
+++    char msg[18];
+++    char buf[BUFSIZE];
+++
+++    /* Build message manually (no string literals assigned to char[]) */
+++    msg[0]='H'; msg[1]='e'; msg[2]='l'; msg[3]='l'; msg[4]='o';
+++    msg[5]=' '; msg[6]='f'; msg[7]='r'; msg[8]='o'; msg[9]='m';
+++    msg[10]=' '; msg[11]='p'; msg[12]='i'; msg[13]='p'; msg[14]='e';
+++    msg[15]='!'; msg[16]='\n'; msg[17]='\0';
+++
+++    /* Create the pipe */
+++    if (Pipe(&readFD, &writeFD) < 0) {
+++        Exit(1);
+++    }
+++
+++    /* Write into the write end */
+++    written = Write(msg, 17, writeFD);
+++
+++    /* Close write end so the reader sees EOF */
+++    Close(writeFD);
+++
+++    /* Read from the read end */
+++    bytesRead = Read(buf, BUFSIZE, readFD);
+++
+++    /* Echo what we received to stdout (fd 1) */
+++    if (bytesRead > 0) {
+++        Write(buf, bytesRead, 1);
+++    }
+++
+++    Close(readFD);
+++    Exit(0);
+++    return 0;
+++}
++\ No newline at end of file
++diff --git a/nachos-project-master/code/threads/kernel.cc b/nachos-project-master/code/threads/kernel.cc
++index 7136b45..5fe4618 100644
++--- a/nachos-project-master/code/threads/kernel.cc
+++++ b/nachos-project-master/code/threads/kernel.cc
++@@ -17,6 +17,8 @@
++ #include "synchconsole.h"
++ #include "synchdisk.h"
++ #include "post.h"
+++#include "pipetable.h"
+++
++ 
++ #define MAX_PROCESS 10
++ //----------------------------------------------------------------------
++@@ -111,6 +113,7 @@ void Kernel::Initialize(char *userProgName /*=NULL*/) {
++     gPhysPageBitMap = new Bitmap(128);
++     semTab = new STable();
++     pTab = new PTable(MAX_PROCESS);
+++    gPipeTable = new PipeTable();
++ 
++     interrupt->Enable();
++ }
++@@ -136,6 +139,10 @@ Kernel::~Kernel() {
++     delete gPhysPageBitMap;
++     delete semTab;
++     delete addrLock;
+++        if (gPipeTable != NULL) {
+++        delete gPipeTable;
+++        gPipeTable = NULL;
+++    }
++ 
++     Exit(0);
++ }
++diff --git a/nachos-project-master/code/userprog/exception.cc b/nachos-project-master/code/userprog/exception.cc
++index 946f724..8a621df 100644
++--- a/nachos-project-master/code/userprog/exception.cc
+++++ b/nachos-project-master/code/userprog/exception.cc
++@@ -1,62 +1,10 @@
++-// exception.cc
++-//	Entry point into the Nachos kernel from user programs.
++-//	There are two kinds of things that can cause control to
++-//	transfer back to here from user code:
++-//
++-//	syscall -- The user code explicitly requests to call a procedure
++-//	in the Nachos kernel.  Right now, the only function we support is
++-//	"Halt".
++-//
++-//	exceptions -- The user code does something that the CPU can't handle.
++-//	For instance, accessing memory that doesn't exist, arithmetic errors,
++-//	etc.
++-//
++-//	Interrupts (which can also cause control to transfer from user
++-//	code into the Nachos kernel) are handled elsewhere.
++-//
++-// For now, this only handles the Halt() system call.
++-// Everything else core dumps.
++-//
++-// Copyright (c) 1992-1996 The Regents of the University of California.
++-// All rights reserved.  See copyright.h for copyright notice and limitation
++-// of liability and disclaimer of warranty provisions.
++-
++ #include "copyright.h"
++ #include "main.h"
++ #include "syscall.h"
++ #include "ksyscall.h"
++-//----------------------------------------------------------------------
++-// ExceptionHandler
++-// 	Entry point into the Nachos kernel.  Called when a user program
++-//	is executing, and either does a syscall, or generates an addressing
++-//	or arithmetic exception.
++-//
++-// 	For system calls, the following is the calling convention:
++-//
++-// 	system call code -- r2
++-//		arg1 -- r4
++-//		arg2 -- r5
++-//		arg3 -- r6
++-//		arg4 -- r7
++-//
++-//	The result of the system call, if any, must be put back into r2.
++-//
++-// If you are handling a system call, don't forget to increment the pc
++-// before returning (by calling move_program_counter()). (Or else you'll loop
++-// making the same system call forever!)
++-//
++-//	"which" is the kind of exception.  The list of possible exceptions
++-//	is in machine.h.
++-//----------------------------------------------------------------------
++-
++-/**
++- * @brief Convert user string to system string
++- *
++- * @param addr addess of user string
++- * @param convert_length set max length of string to convert, leave
++- * blank to convert all characters of user string
++- * @return char*
++- */
+++// NOTE: openfile_pipe.h removed — pipe dispatch is handled in ksyscall.h
+++//       via gPipeTable, which is checked inside SysRead/SysWrite/SysClose.
+++
++ char* stringUser2System(int addr, int convert_length = -1) {
++     int length = 0;
++     bool stop = false;
++@@ -66,8 +14,6 @@ char* stringUser2System(int addr, int convert_length = -1) {
++         int oneChar;
++         kernel->machine->ReadMem(addr + length, 1, &oneChar);
++         length++;
++-        // if convert_length == -1, we use '\0' to terminate the process
++-        // otherwise, we use convert_length to terminate the process
++         stop = ((oneChar == '\0' && convert_length == -1) ||
++                 length == convert_length);
++     } while (!stop);
++@@ -75,57 +21,29 @@ char* stringUser2System(int addr, int convert_length = -1) {
++     str = new char[length];
++     for (int i = 0; i < length; i++) {
++         int oneChar;
++-        kernel->machine->ReadMem(addr + i, 1,
++-                                 &oneChar);  // copy characters to kernel space
+++        kernel->machine->ReadMem(addr + i, 1, &oneChar);
++         str[i] = (unsigned char)oneChar;
++     }
++     return str;
++ }
++ 
++-/**
++- * @brief Convert system string to user string
++- *
++- * @param str string to convert
++- * @param addr addess of user string
++- * @param convert_length set max length of string to convert, leave
++- * blank to convert all characters of system string
++- * @return void
++- */
++ void StringSys2User(char* str, int addr, int convert_length = -1) {
++     int length = (convert_length == -1 ? strlen(str) : convert_length);
++     for (int i = 0; i < length; i++) {
++-        kernel->machine->WriteMem(addr + i, 1,
++-                                  str[i]);  // copy characters to user space
+++        kernel->machine->WriteMem(addr + i, 1, str[i]);
++     }
++     kernel->machine->WriteMem(addr + length, 1, '\0');
++ }
++ 
++-/**
++- * Modify program counter
++- * This code is adapted from `../machine/mipssim.cc`, line 667
++- **/
++ void move_program_counter() {
++-    /* set previous programm counter (debugging only)
++-     * similar to: registers[PrevPCReg] = registers[PCReg];*/
++     kernel->machine->WriteRegister(PrevPCReg,
++                                    kernel->machine->ReadRegister(PCReg));
++-
++-    /* set programm counter to next instruction
++-     * similar to: registers[PCReg] = registers[NextPCReg]*/
++     kernel->machine->WriteRegister(PCReg,
++                                    kernel->machine->ReadRegister(NextPCReg));
++-
++-    /* set next programm counter for brach execution
++-     * similar to: registers[NextPCReg] = pcAfter;*/
++     kernel->machine->WriteRegister(
++         NextPCReg, kernel->machine->ReadRegister(NextPCReg) + 4);
++ }
++ 
++-/**
++- * Handle not implemented syscall
++- * This method will write the syscall to debug log and increase
++- * the program counter.
++- */
++ void handle_not_implemented_SC(int type) {
++     DEBUG(dbgSys, "Not yet implemented syscall " << type << "\n");
++     return move_program_counter();
++@@ -140,32 +58,20 @@ void handle_SC_Halt() {
++ void handle_SC_Add() {
++     DEBUG(dbgSys, "Add " << kernel->machine->ReadRegister(4) << " + "
++                          << kernel->machine->ReadRegister(5) << "\n");
++-
++-    /* Process SysAdd Systemcall*/
++     int result;
++-    result = SysAdd(
++-        /* int op1 */ (int)kernel->machine->ReadRegister(4),
++-        /* int op2 */ (int)kernel->machine->ReadRegister(5));
++-
+++    result = SysAdd((int)kernel->machine->ReadRegister(4),
+++                    (int)kernel->machine->ReadRegister(5));
++     DEBUG(dbgSys, "Add returning with " << result << "\n");
++-    /* Prepare Result */
++     kernel->machine->WriteRegister(2, (int)result);
++-
++     return move_program_counter();
++ }
++ 
++ void handle_SC_Abs() {
++-    DEBUG(dbgSys, "Abs " << kernel->machine->ReadRegister(4)<< "\n");
++-
++-    /* Process SysAbs Systemcall*/
+++    DEBUG(dbgSys, "Abs " << kernel->machine->ReadRegister(4) << "\n");
++     int result;
++-    result = SysAbs(
++-        /* int num */ (int)kernel->machine->ReadRegister(4));
++-
+++    result = SysAbs((int)kernel->machine->ReadRegister(4));
++     DEBUG(dbgSys, "Abs returning with " << result << "\n");
++-    /* Prepare Result */
++     kernel->machine->WriteRegister(2, (int)result);
++-
++     return move_program_counter();
++ }
++ 
++@@ -208,9 +114,9 @@ void handle_SC_RandomNum() {
++ 
++ #define MAX_READ_STRING_LENGTH 255
++ void handle_SC_ReadString() {
++-    int memPtr = kernel->machine->ReadRegister(4);  // read address of C-string
++-    int length = kernel->machine->ReadRegister(5);  // read length of C-string
++-    if (length > MAX_READ_STRING_LENGTH) {  // avoid allocating large memory
+++    int memPtr = kernel->machine->ReadRegister(4);
+++    int length = kernel->machine->ReadRegister(5);
+++    if (length > MAX_READ_STRING_LENGTH) {
++         DEBUG(dbgSys, "String length exceeds " << MAX_READ_STRING_LENGTH);
++         SysHalt();
++     }
++@@ -221,9 +127,8 @@ void handle_SC_ReadString() {
++ }
++ 
++ void handle_SC_PrintString() {
++-    int memPtr = kernel->machine->ReadRegister(4);  // read address of C-string
+++    int memPtr = kernel->machine->ReadRegister(4);
++     char* buffer = stringUser2System(memPtr);
++-
++     SysPrintString(buffer, strlen(buffer));
++     delete[] buffer;
++     return move_program_counter();
++@@ -256,7 +161,6 @@ void handle_SC_Open() {
++ void handle_SC_Close() {
++     int id = kernel->machine->ReadRegister(4);
++     kernel->machine->WriteRegister(2, SysClose(id));
++-
++     return move_program_counter();
++ }
++ 
++@@ -266,8 +170,7 @@ void handle_SC_Read() {
++     char* buffer = stringUser2System(virtAddr, charCount);
++     int fileId = kernel->machine->ReadRegister(6);
++ 
++-    DEBUG(dbgFile,
++-          "Read " << charCount << " chars from file " << fileId << "\n");
+++    DEBUG(dbgFile, "Read " << charCount << " chars from file " << fileId << "\n");
++ 
++     kernel->machine->WriteRegister(2, SysRead(buffer, charCount, fileId));
++     StringSys2User(buffer, virtAddr, charCount);
++@@ -282,8 +185,7 @@ void handle_SC_Write() {
++     char* buffer = stringUser2System(virtAddr, charCount);
++     int fileId = kernel->machine->ReadRegister(6);
++ 
++-    DEBUG(dbgFile,
++-          "Write " << charCount << " chars to file " << fileId << "\n");
+++    DEBUG(dbgFile, "Write " << charCount << " chars to file " << fileId << "\n");
++ 
++     kernel->machine->WriteRegister(2, SysWrite(buffer, charCount, fileId));
++     StringSys2User(buffer, virtAddr, charCount);
++@@ -292,66 +194,32 @@ void handle_SC_Write() {
++     return move_program_counter();
++ }
++ 
++-/**
++- * Handle SC_Seek
++- * This method will seek the file to the given position.
++- * @param seekPos: seek position (use -1 to seek to end of file) (get from R4)
++- * @param fileId: file descriptor (get from R5)
++- * @return -1 if failed to seek, otherwise return the new position
++- */
++ void handle_SC_Seek() {
++     int seekPos = kernel->machine->ReadRegister(4);
++     int fileId = kernel->machine->ReadRegister(5);
++-
++     kernel->machine->WriteRegister(2, SysSeek(seekPos, fileId));
++-
++     return move_program_counter();
++ }
++ 
++-/**
++- * @brief handle System Call Exec
++- * @param virtAddr: virtual address of user string name (get from R4)
++- * @return -1 if failed to Exec, otherwise return id of new process
++- * (write result to R2)
++- */
++ void handle_SC_Exec() {
++-    int virtAddr;
++-    virtAddr = kernel->machine->ReadRegister(
++-        4);  // doc dia chi ten chuong trinh tu thanh ghi r4
++-    char* name;
++-    name = stringUser2System(virtAddr);  // Lay ten chuong trinh, nap vao kernel
+++    int virtAddr = kernel->machine->ReadRegister(4);
+++    char* name = stringUser2System(virtAddr);
++     if (name == NULL) {
++         DEBUG(dbgSys, "\n Not enough memory in System");
++         ASSERT(false);
++         kernel->machine->WriteRegister(2, -1);
++         return move_program_counter();
++     }
++-
++     kernel->machine->WriteRegister(2, SysExec(name));
++-    // DO NOT DELETE NAME, THE THEARD WILL DELETE IT LATER
++-    // delete[] name;
++-
++     return move_program_counter();
++ }
++ 
++-/**
++- * @brief handle System Call Join
++- * @param id: thread id (get from R4)
++- * @return -1 if failed to join, otherwise return exit code of
++- * the thread. (write result to R2)
++- */
++ void handle_SC_Join() {
++     int id = kernel->machine->ReadRegister(4);
++     kernel->machine->WriteRegister(2, SysJoin(id));
++     return move_program_counter();
++ }
++ 
++-/**
++- * @brief handle System Call Exit
++- * @param id: thread id (get from R4)
++- * @return -1 if failed to exit, otherwise return exit code of
++- * the thread. (write result to R2)
++- */
++ void handle_SC_Exit() {
++     int id = kernel->machine->ReadRegister(4);
++     kernel->machine->WriteRegister(2, SysExit(id));
++@@ -370,7 +238,6 @@ void handle_SC_CreateSemaphore() {
++         delete[] name;
++         return move_program_counter();
++     }
++-
++     kernel->machine->WriteRegister(2, SysCreateSemaphore(name, semval));
++     delete[] name;
++     return move_program_counter();
++@@ -378,7 +245,6 @@ void handle_SC_CreateSemaphore() {
++ 
++ void handle_SC_Wait() {
++     int virtAddr = kernel->machine->ReadRegister(4);
++-
++     char* name = stringUser2System(virtAddr);
++     if (name == NULL) {
++         DEBUG(dbgSys, "\n Not enough memory in System");
++@@ -387,7 +253,6 @@ void handle_SC_Wait() {
++         delete[] name;
++         return move_program_counter();
++     }
++-
++     kernel->machine->WriteRegister(2, SysWait(name));
++     delete[] name;
++     return move_program_counter();
++@@ -395,7 +260,6 @@ void handle_SC_Wait() {
++ 
++ void handle_SC_Signal() {
++     int virtAddr = kernel->machine->ReadRegister(4);
++-
++     char* name = stringUser2System(virtAddr);
++     if (name == NULL) {
++         DEBUG(dbgSys, "\n Not enough memory in System");
++@@ -404,7 +268,6 @@ void handle_SC_Signal() {
++         delete[] name;
++         return move_program_counter();
++     }
++-
++     kernel->machine->WriteRegister(2, SysSignal(name));
++     delete[] name;
++     return move_program_counter();
++@@ -421,7 +284,7 @@ void ExceptionHandler(ExceptionType which) {
++     DEBUG(dbgSys, "Received Exception " << which << " type: " << type << "\n");
++ 
++     switch (which) {
++-        case NoException:  // return control to kernel
+++        case NoException:
++             kernel->interrupt->setStatus(SystemMode);
++             DEBUG(dbgSys, "Switch to system mode\n");
++             break;
++@@ -446,6 +309,37 @@ void ExceptionHandler(ExceptionType which) {
++                     return handle_SC_Abs();
++                 case SC_Sleep:
++                     return handle_SC_Sleep();
+++
+++                case SC_Pipe: {
+++                    int readFDptr  = kernel->machine->ReadRegister(4);
+++                    int writeFDptr = kernel->machine->ReadRegister(5);
+++
+++                    int readFD  = -1;
+++                    int writeFD = -1;
+++
+++                    int result = SysPipe(&readFD, &writeFD);
+++
+++                    if (result == 0) {
+++                        kernel->machine->WriteMem(readFDptr,  4, readFD);
+++                        kernel->machine->WriteMem(writeFDptr, 4, writeFD);
+++                        kernel->machine->WriteRegister(2, 0);
+++                    } else {
+++                        kernel->machine->WriteRegister(2, -1);
+++                    }
+++
+++                    DEBUG(dbgSys, "SC_Pipe: readFD=" << readFD
+++                                  << " writeFD=" << writeFD
+++                                  << " result=" << result << "\n");
+++
+++                    kernel->machine->WriteRegister(PrevPCReg,
+++                        kernel->machine->ReadRegister(PCReg));
+++                    kernel->machine->WriteRegister(PCReg,
+++                        kernel->machine->ReadRegister(NextPCReg));
+++                    kernel->machine->WriteRegister(NextPCReg,
+++                        kernel->machine->ReadRegister(NextPCReg) + 4);
+++                    return;
+++                }
+++
++                 case SC_ReadNum:
++                     return handle_SC_ReadNum();
++                 case SC_PrintNum:
++@@ -486,13 +380,7 @@ void ExceptionHandler(ExceptionType which) {
++                     return handle_SC_Signal();
++                 case SC_GetPid:
++                     return handle_SC_GetPid();
++-                /**
++-                 * Handle all not implemented syscalls
++-                 * If you want to write a new handler for syscall:
++-                 * - Remove it from this list below
++-                 * - Write handle_SC_name()
++-                 * - Add new case for SC_name
++-                 */
+++
++                 case SC_Create:
++                 case SC_Remove:
++                 case SC_ThreadFork:
++@@ -512,4 +400,4 @@ void ExceptionHandler(ExceptionType which) {
++             break;
++     }
++     ASSERTNOTREACHED();
++-}
+++}
++\ No newline at end of file
++diff --git a/nachos-project-master/code/userprog/ksyscall.h b/nachos-project-master/code/userprog/ksyscall.h
++index 3ddef3c..94a0294 100644
++--- a/nachos-project-master/code/userprog/ksyscall.h
+++++ b/nachos-project-master/code/userprog/ksyscall.h
++@@ -15,9 +15,28 @@
++ #include "synchconsole.h"
++ #include "ksyscallhelper.h"
++ #include <stdlib.h>
+++#include "pipe.h"
+++#include "pipetable.h"
++ 
++ void SysHalt() { kernel->interrupt->Halt(); }
++ 
+++int SysPipe(int *readFD, int *writeFD)
+++{
+++    if (gPipeTable == NULL) {
+++        DEBUG(dbgSys, "SysPipe: gPipeTable not initialised!\n");
+++        return -1;
+++    }
+++
+++    int r = -1, w = -1;
+++    int result = gPipeTable->AllocPipe(&r, &w);
+++    if (result == 0) {
+++        *readFD  = r;
+++        *writeFD = w;
+++        DEBUG(dbgSys, "SysPipe: readFD=" << r << " writeFD=" << w << "\n");
+++    }
+++    return result;
+++}
+++
++ int SysAdd(int op1, int op2) { return op1 + op2; }
++ 
++ int SysAbs(int num) {
++@@ -175,19 +194,41 @@ int SysOpen(char* fileName, int type) {
++     return id;
++ }
++ 
++-int SysClose(int id) { return kernel->fileSystem->Close(id); }
+++int SysClose(int id) {
+++    if (gPipeTable != NULL && gPipeTable->IsPipeFD(id)) {
+++        gPipeTable->Close(id);
+++        return 1;
+++    }
+++    return kernel->fileSystem->Close(id);
+++}
++ 
+++// -----------------------------------------------------------------------
++ int SysRead(char* buffer, int charCount, int fileId) {
++-    if (fileId == 0) {
+++    // stdin
+++    if (fileId == 0)
++         return kernel->synchConsoleIn->GetString(buffer, charCount);
++-    }
+++
+++    // pipe read end
+++    if (gPipeTable != NULL && gPipeTable->IsPipeFD(fileId))
+++        return gPipeTable->Read(fileId, buffer, charCount);
+++
+++    // regular file
++     return kernel->fileSystem->Read(buffer, charCount, fileId);
++ }
++ 
+++// -----------------------------------------------------------------------
+++// SysWrite  —  checks pipe table first
+++// -----------------------------------------------------------------------
++ int SysWrite(char* buffer, int charCount, int fileId) {
++-    if (fileId == 1) {
+++    // stdout
+++    if (fileId == 1)
++         return kernel->synchConsoleOut->PutString(buffer, charCount);
++-    }
+++
+++    // pipe write end
+++    if (gPipeTable != NULL && gPipeTable->IsPipeFD(fileId))
+++        return gPipeTable->Write(fileId, buffer, charCount);
+++
+++    // regular file
++     return kernel->fileSystem->Write(buffer, charCount, fileId);
++ }
++ 
++diff --git a/nachos-project-master/code/userprog/pipe.cc b/nachos-project-master/code/userprog/pipe.cc
++new file mode 100644
++index 0000000..e503089
++--- /dev/null
+++++ b/nachos-project-master/code/userprog/pipe.cc
++@@ -0,0 +1,90 @@
+++// pipe.cc
+++
+++#include "pipe.h"
+++#include "main.h"
+++#include <string.h>
+++
+++PipeBuffer::PipeBuffer()
+++{
+++    readPos        = 0;
+++    writePos       = 0;
+++    count          = 0;
+++    writeEndClosed = false;
+++    readEndClosed  = false;
+++    lock     = new Lock("PipeLock");
+++    notEmpty = new Condition("PipeNotEmpty");
+++    notFull  = new Condition("PipeNotFull");
+++}
+++
+++PipeBuffer::~PipeBuffer()
+++{
+++    delete lock;
+++    delete notEmpty;
+++    delete notFull;
+++}
+++
+++int PipeBuffer::Write(char *buffer, int numBytes)
+++{
+++    if (numBytes <= 0 || buffer == NULL) return -1;
+++    lock->Acquire();
+++
+++    if (readEndClosed) { lock->Release(); return -1; }
+++
+++    int written = 0;
+++    while (written < numBytes) {
+++        while (count == PIPE_BUFFER_SIZE) {
+++            if (readEndClosed) {
+++                lock->Release();
+++                return written == 0 ? -1 : written;
+++            }
+++            notFull->Wait(lock);
+++        }
+++        buf[writePos] = buffer[written];
+++        writePos = (writePos + 1) % PIPE_BUFFER_SIZE;
+++        count++;
+++        written++;
+++        notEmpty->Signal(lock);
+++    }
+++
+++    lock->Release();
+++    return written;
+++}
+++
+++int PipeBuffer::Read(char *buffer, int numBytes)
+++{
+++    if (numBytes <= 0 || buffer == NULL) return -1;
+++    lock->Acquire();
+++
+++    while (count == 0) {
+++        if (writeEndClosed) { lock->Release(); return 0; } // EOF
+++        notEmpty->Wait(lock);
+++    }
+++
+++    int bytesRead = 0;
+++    while (bytesRead < numBytes && count > 0) {
+++        buffer[bytesRead] = buf[readPos];
+++        readPos = (readPos + 1) % PIPE_BUFFER_SIZE;
+++        count--;
+++        bytesRead++;
+++        notFull->Signal(lock);
+++    }
+++
+++    lock->Release();
+++    return bytesRead;
+++}
+++
+++void PipeBuffer::CloseWriteEnd()
+++{
+++    lock->Acquire();
+++    writeEndClosed = true;
+++    notEmpty->Broadcast(lock); // wake readers so they see EOF
+++    lock->Release();
+++}
+++
+++void PipeBuffer::CloseReadEnd()
+++{
+++    lock->Acquire();
+++    readEndClosed = true;
+++    notFull->Broadcast(lock);  // wake writers so they see broken pipe
+++    lock->Release();
+++}
++\ No newline at end of file
++diff --git a/nachos-project-master/code/userprog/pipe.h b/nachos-project-master/code/userprog/pipe.h
++new file mode 100644
++index 0000000..643949b
++--- /dev/null
+++++ b/nachos-project-master/code/userprog/pipe.h
++@@ -0,0 +1,45 @@
+++// pipe.h
+++// A unidirectional in-memory pipe buffer.
+++// Named PipeBuffer to avoid conflict with the Pipe() syscall function.
+++
+++#ifndef PIPE_H
+++#define PIPE_H
+++
+++#include "synch.h"
+++
+++#define PIPE_BUFFER_SIZE 1024
+++
+++class PipeBuffer {
+++public:
+++    PipeBuffer();
+++    ~PipeBuffer();
+++
+++    // Write numBytes from buffer into pipe. Blocks if full.
+++    // Returns bytes written, or -1 if read end is closed.
+++    int Write(char *buffer, int numBytes);
+++
+++    // Read up to numBytes from pipe into buffer. Blocks if empty.
+++    // Returns bytes read, 0 on EOF (write end closed + empty), -1 on error.
+++    int Read(char *buffer, int numBytes);
+++
+++    void CloseWriteEnd();
+++    void CloseReadEnd();
+++
+++    bool IsWriteEndClosed() { return writeEndClosed; }
+++    bool IsReadEndClosed()  { return readEndClosed;  }
+++
+++private:
+++    char buf[PIPE_BUFFER_SIZE];
+++    int  readPos;
+++    int  writePos;
+++    int  count;
+++
+++    bool writeEndClosed;
+++    bool readEndClosed;
+++
+++    Lock      *lock;
+++    Condition *notEmpty;
+++    Condition *notFull;
+++};
+++
+++#endif // PIPE_H
++\ No newline at end of file
++diff --git a/nachos-project-master/code/userprog/pipetable.cc b/nachos-project-master/code/userprog/pipetable.cc
++new file mode 100644
++index 0000000..16eb1f1
++--- /dev/null
+++++ b/nachos-project-master/code/userprog/pipetable.cc
++@@ -0,0 +1,110 @@
+++// pipetable.cc
+++
+++#include "pipetable.h"
+++#include <string.h>
+++
+++// Global singleton — initialised in kernel startup (kernel.cc or main.cc)
+++PipeTable *gPipeTable = NULL;
+++
+++PipeTable::PipeTable()
+++{
+++    memset(entries, 0, sizeof(entries));
+++    nextFD = PIPE_FD_BASE;
+++}
+++
+++PipeTable::~PipeTable()
+++{
+++    // Close any still-open entries
+++    for (int i = 0; i < MAX_PIPE_FDS; i++) {
+++        if (entries[i].inUse) {
+++            entries[i].inUse = false;
+++            // Only delete the PipeBuffer if BOTH ends are closed
+++            if (entries[i].pipe->IsWriteEndClosed() &&
+++                entries[i].pipe->IsReadEndClosed())
+++                delete entries[i].pipe;
+++        }
+++    }
+++}
+++
+++int PipeTable::AllocSlot()
+++{
+++    for (int i = 0; i < MAX_PIPE_FDS; i++)
+++        if (!entries[i].inUse) return i;
+++    return -1;
+++}
+++
+++int PipeTable::FDtoSlot(int fd)
+++{
+++    for (int i = 0; i < MAX_PIPE_FDS; i++)
+++        if (entries[i].inUse && (PIPE_FD_BASE + i) == fd) return i;
+++    return -1;
+++}
+++
+++bool PipeTable::IsPipeFD(int fd)
+++{
+++    return FDtoSlot(fd) != -1;
+++}
+++
+++int PipeTable::AllocPipe(int *readFD, int *writeFD)
+++{
+++    int rSlot = AllocSlot();
+++    if (rSlot == -1) return -1;
+++
+++    entries[rSlot].inUse = true; // temporarily mark to avoid double-alloc
+++    int wSlot = AllocSlot();
+++    if (wSlot == -1) {
+++        entries[rSlot].inUse = false;
+++        return -1;
+++    }
+++
+++    PipeBuffer *pb = new PipeBuffer();
+++
+++    entries[rSlot].pipe       = pb;
+++    entries[rSlot].isWriteEnd = false;
+++    entries[rSlot].inUse      = true;
+++
+++    entries[wSlot].pipe       = pb;
+++    entries[wSlot].isWriteEnd = true;
+++    entries[wSlot].inUse      = true;
+++
+++    *readFD  = PIPE_FD_BASE + rSlot;
+++    *writeFD = PIPE_FD_BASE + wSlot;
+++    return 0;
+++}
+++
+++int PipeTable::Read(int fd, char *buf, int numBytes)
+++{
+++    int slot = FDtoSlot(fd);
+++    if (slot == -1) return -1;
+++    if (entries[slot].isWriteEnd) return -1; // can't read write end
+++    return entries[slot].pipe->Read(buf, numBytes);
+++}
+++
+++int PipeTable::Write(int fd, char *buf, int numBytes)
+++{
+++    int slot = FDtoSlot(fd);
+++    if (slot == -1) return -1;
+++    if (!entries[slot].isWriteEnd) return -1; // can't write read end
+++    return entries[slot].pipe->Write(buf, numBytes);
+++}
+++
+++void PipeTable::Close(int fd)
+++{
+++    int slot = FDtoSlot(fd);
+++    if (slot == -1) return;
+++
+++    PipeBuffer *pb = entries[slot].pipe;
+++    bool isWrite   = entries[slot].isWriteEnd;
+++
+++    entries[slot].inUse = false;
+++    entries[slot].pipe  = NULL;
+++
+++    if (isWrite)
+++        pb->CloseWriteEnd();
+++    else
+++        pb->CloseReadEnd();
+++
+++    // Free shared buffer only when both ends are closed
+++    if (pb->IsWriteEndClosed() && pb->IsReadEndClosed())
+++        delete pb;
+++}
++\ No newline at end of file
++diff --git a/nachos-project-master/code/userprog/pipetable.h b/nachos-project-master/code/userprog/pipetable.h
++new file mode 100644
++index 0000000..ad2e37c
++--- /dev/null
+++++ b/nachos-project-master/code/userprog/pipetable.h
++@@ -0,0 +1,57 @@
+++// pipetable.h
+++//
+++// A global table that maps file-descriptor integers to PipeBuffer objects.
+++//
+++// Why we need this instead of openFiles[]:
+++//   In this NachOS repo, Thread has no openFiles[] array.
+++//   All file I/O goes through kernel->fileSystem with integer FDs.
+++//   We intercept pipe FDs BEFORE they reach the filesystem.
+++//
+++// FD allocation strategy:
+++//   Regular filesystem FDs start from 2 (0=stdin, 1=stdout).
+++//   Pipe FDs start from PIPE_FD_BASE (100) so they never clash
+++//   with filesystem FDs.
+++
+++#ifndef PIPETABLE_H
+++#define PIPETABLE_H
+++
+++#include "pipe.h"
+++
+++#define PIPE_FD_BASE   100   // pipe FDs start here
+++#define MAX_PIPE_FDS   64    // max simultaneous pipe endpoints
+++
+++struct PipeEntry {
+++    PipeBuffer *pipe;       // shared buffer (same pointer for both ends)
+++    bool        isWriteEnd; // true = write end, false = read end
+++    bool        inUse;
+++};
+++
+++class PipeTable {
+++public:
+++    PipeTable();
+++    ~PipeTable();
+++
+++    // Allocate two new FDs (read + write ends) for a fresh pipe.
+++    // Returns 0 on success, -1 if table is full.
+++    int  AllocPipe(int *readFD, int *writeFD);
+++
+++    // Returns true if fd belongs to a pipe.
+++    bool IsPipeFD(int fd);
+++
+++    // Read/Write/Close — only call after IsPipeFD() returns true.
+++    int  Read (int fd, char *buf, int numBytes);
+++    int  Write(int fd, char *buf, int numBytes);
+++    void Close(int fd);
+++
+++private:
+++    PipeEntry entries[MAX_PIPE_FDS];
+++    int nextFD; // next candidate FD to allocate
+++
+++    int  AllocSlot();         // find a free slot index
+++    int  FDtoSlot(int fd);    // fd -> slot index (-1 if not found)
+++};
+++
+++// Global singleton — defined in pipe.cc, declared here.
+++extern PipeTable *gPipeTable;
+++
+++#endif // PIPETABLE_H
++\ No newline at end of file
++diff --git a/nachos-project-master/code/userprog/syscall.h b/nachos-project-master/code/userprog/syscall.h
++index 56104c2..2714e8f 100644
++--- a/nachos-project-master/code/userprog/syscall.h
+++++ b/nachos-project-master/code/userprog/syscall.h
++@@ -50,6 +50,7 @@
++ #define SC_GetPid 54
++ #define SC_Abs 55
++ #define SC_Sleep 56
+++#define SC_Pipe 57
++ 
++ #ifndef IN_ASM
++ 
++@@ -73,6 +74,8 @@ int Abs(int num);
++ 
++ void Sleep(int ticks);
++ 
+++int Pipe(int *readfd_ptr, int *writefd_ptr);
+++
++ int Add(int op1, int op2);
++ 
++ int ReadNum();
+diff --git a/nachos-project-master/code/test/Makefile b/nachos-project-master/code/test/Makefile
+index 0182897..32e044a 100644
+--- a/nachos-project-master/code/test/Makefile
++++ b/nachos-project-master/code/test/Makefile
+@@ -112,7 +112,7 @@ ifeq ($(hosttype),unknown)
+ PROGRAMS = unknownhost
+ else
+ # change this if you create a new test program!
+-PROGRAMS = add abs pipetest sleep halt shell matmult sort segments test_syscall num_io char_io random str_io ascii bubblesort help create_file open_file readwrite exec test_sem sinhvien voinuoc main
++PROGRAMS = add abs pipetest sleep demandpage_test halt shell matmult sort segments test_syscall num_io char_io random str_io ascii bubblesort help create_file open_file readwrite exec test_sem sinhvien voinuoc main
+ endif
+ 
+ all: $(PROGRAMS)
+@@ -140,6 +140,13 @@ pipetest: pipetest.o start.o
+ 	$(LD) $(LDFLAGS) start.o pipetest.o -o pipetest.coff
+ 	$(COFF2NOFF) pipetest.coff pipetest
+ 
++demandpage_test.o: demandpage_test.c
++	$(CC) $(CFLAGS) -c demandpage_test.c
++
++demandpage_test: demandpage_test.o start.o
++	$(LD) $(LDFLAGS) start.o demandpage_test.o -o demandpage_test.coff
++	$(COFF2NOFF) demandpage_test.coff demandpage_test
++
+ sleep.o: sleep.c
+ 	$(CC) $(CFLAGS) -c sleep.c
+ 
+diff --git a/nachos-project-master/code/test/demandpage_test.c b/nachos-project-master/code/test/demandpage_test.c
+new file mode 100644
+index 0000000..8836c17
+--- /dev/null
++++ b/nachos-project-master/code/test/demandpage_test.c
+@@ -0,0 +1,64 @@
++/*
++ * demandpage_test.c
++ *
++ * Tests NachOS demand paging:
++ *   - String literals live in the .rodata segment → readonlyData pages
++ *     are faulted in when PrintString first accesses them.
++ *   - A 200-element stack array forces multiple stack page faults.
++ *   - Data is verified to confirm pages were loaded correctly.
++ *
++ * Expected output:
++ *   === Demand Paging Test ===
++ *   Filling array...
++ *   Sum forward  = 20100  PASSED
++ *   Sum backward = 20100  PASSED
++ *   === All tests passed! ===
++ */
++
++#include "syscall.h"
++
++int main(void)
++{
++    int arr[200];   /* forces several stack page faults */
++    int i, sum, revSum;
++
++    /* These string literals are in .rodata → demand-paged on first access */
++    PrintString("=== Demand Paging Test ===\n");
++    PrintString("Filling array...\n");
++
++    /* touch every element: each new stack page triggers a page fault */
++    for (i = 0; i < 200; i++)
++        arr[i] = i + 1;          /* values 1 .. 200 */
++
++    /* forward sum = 200*201/2 = 20100 */
++    sum = 0;
++    for (i = 0; i < 200; i++)
++        sum += arr[i];
++
++    PrintString("Sum forward  = ");
++    PrintNum(sum);
++    if (sum == 20100) {
++        PrintString("  PASSED\n");
++    } else {
++        PrintString("  FAILED\n");
++        Exit(1);
++    }
++
++    /* backward sum — different page-access order */
++    revSum = 0;
++    for (i = 199; i >= 0; i--)
++        revSum += arr[i];
++
++    PrintString("Sum backward = ");
++    PrintNum(revSum);
++    if (revSum == 20100) {
++        PrintString("  PASSED\n");
++    } else {
++        PrintString("  FAILED\n");
++        Exit(1);
++    }
++
++    PrintString("=== All tests passed! ===\n");
++    Exit(0);
++    return 0;
++}
+\ No newline at end of file
+diff --git a/nachos-project-master/code/userprog/addrspace.cc b/nachos-project-master/code/userprog/addrspace.cc
+index 0002d39..ffc5d7c 100644
+--- a/nachos-project-master/code/userprog/addrspace.cc
++++ b/nachos-project-master/code/userprog/addrspace.cc
+@@ -1,20 +1,3 @@
+-// addrspace.cc
+-//	Routines to manage address spaces (executing user programs).
+-//
+-//	In order to run a user program, you must:
+-//
+-//	1. link with the -n -T 0 option
+-//	2. run coff2noff to convert the object file to Nachos format
+-//		(Nachos object code format is essentially just a simpler
+-//		version of the UNIX executable object code format)
+-//	3. load the NOFF file into the Nachos file system
+-//		(if you are using the "stub" file system, you
+-//		don't need to do this last step)
+-//
+-// Copyright (c) 1992-1996 The Regents of the University of California.
+-// All rights reserved.  See copyright.h for copyright notice and limitation
+-// of liability and disclaimer of warranty provisions.
+-
+ #include "copyright.h"
+ #include "main.h"
+ #include "addrspace.h"
+@@ -22,290 +5,379 @@
+ #include "noff.h"
+ #include "synch.h"
+ 
+-//----------------------------------------------------------------------
+-// SwapHeader
+-// 	Do little endian to big endian conversion on the bytes in the
+-//	object file header, in case the file was generated on a little
+-//	endian machine, and we're now running on a big endian machine.
+-//----------------------------------------------------------------------
+-
++// ---------------------------------------------------------------------------
++// SwapHeader — byte-swap noff header to host byte order when needed.
++// Handles the optional readonlyData segment (compiled in with -DRDATA).
++// ---------------------------------------------------------------------------
+ static void SwapHeader(NoffHeader *noffH) {
+-    noffH->noffMagic = WordToHost(noffH->noffMagic);
+-    noffH->code.size = WordToHost(noffH->code.size);
+-    noffH->code.virtualAddr = WordToHost(noffH->code.virtualAddr);
+-    noffH->code.inFileAddr = WordToHost(noffH->code.inFileAddr);
++    noffH->noffMagic                    = WordToHost(noffH->noffMagic);
++    noffH->code.size                    = WordToHost(noffH->code.size);
++    noffH->code.virtualAddr             = WordToHost(noffH->code.virtualAddr);
++    noffH->code.inFileAddr              = WordToHost(noffH->code.inFileAddr);
++    noffH->initData.size                = WordToHost(noffH->initData.size);
++    noffH->initData.virtualAddr         = WordToHost(noffH->initData.virtualAddr);
++    noffH->initData.inFileAddr          = WordToHost(noffH->initData.inFileAddr);
+ #ifdef RDATA
+-    noffH->readonlyData.size = WordToHost(noffH->readonlyData.size);
+-    noffH->readonlyData.virtualAddr =
+-        WordToHost(noffH->readonlyData.virtualAddr);
+-    noffH->readonlyData.inFileAddr = WordToHost(noffH->readonlyData.inFileAddr);
+-#endif
+-    noffH->initData.size = WordToHost(noffH->initData.size);
+-    noffH->initData.virtualAddr = WordToHost(noffH->initData.virtualAddr);
+-    noffH->initData.inFileAddr = WordToHost(noffH->initData.inFileAddr);
+-    noffH->uninitData.size = WordToHost(noffH->uninitData.size);
+-    noffH->uninitData.virtualAddr = WordToHost(noffH->uninitData.virtualAddr);
+-    noffH->uninitData.inFileAddr = WordToHost(noffH->uninitData.inFileAddr);
+-
+-#ifdef RDATA
+-    DEBUG(dbgAddr, "code = " << noffH->code.size
+-                             << " readonly = " << noffH->readonlyData.size
+-                             << " init = " << noffH->initData.size
+-                             << " uninit = " << noffH->uninitData.size << "\n");
++    noffH->readonlyData.size            = WordToHost(noffH->readonlyData.size);
++    noffH->readonlyData.virtualAddr     = WordToHost(noffH->readonlyData.virtualAddr);
++    noffH->readonlyData.inFileAddr      = WordToHost(noffH->readonlyData.inFileAddr);
+ #endif
++    noffH->uninitData.size              = WordToHost(noffH->uninitData.size);
++    noffH->uninitData.virtualAddr       = WordToHost(noffH->uninitData.virtualAddr);
++    noffH->uninitData.inFileAddr        = WordToHost(noffH->uninitData.inFileAddr);
+ }
+ 
+-//----------------------------------------------------------------------
+-// AddrSpace::AddrSpace
+-// 	Create an address space to run a user program.
+-//	Set up the translation from program memory to physical
+-//	memory.  For now, this is really simple (1:1), since we are
+-//	only uniprogramming, and we have a single unsegmented page table
+-//----------------------------------------------------------------------
+-
+-AddrSpace::AddrSpace() {
+-    // pageTable = new TranslationEntry[NumPhysPages];
+-    // for (int i = 0; i < NumPhysPages; i++) {
+-    //     pageTable[i].virtualPage = i;  // for now, virt page # = phys page #
+-    //     pageTable[i].physicalPage = i;
+-    //     pageTable[i].valid = TRUE;
+-    //     pageTable[i].use = FALSE;
+-    //     pageTable[i].dirty = FALSE;
+-    //     pageTable[i].readOnly = FALSE;
+-    // }
+-
+-    // // zero out the entire address space
+-    // bzero(kernel->machine->mainMemory, MemorySize);
+-}
+-
+-//----------------------------------------------------------------------
+-// AddrSpace::~AddrSpace
+-// 	Dealloate an address space.
+-//----------------------------------------------------------------------
+-
+-AddrSpace::~AddrSpace() {
+-    int i;
+-    for (i = 0; i < numPages; i++) {
+-        kernel->gPhysPageBitMap->Clear(pageTable[i].physicalPage);
+-    }
+-    delete[] pageTable;
+-}
++static inline int minInt(int a, int b) { return a < b ? a : b; }
+ 
+-//----------------------------------------------------------------------
+-// AddrSpace::Load
+-// 	Load a user program into memory from a file.
++// ---------------------------------------------------------------------------
++// Helper: classify one virtual page against one noff segment.
+ //
+-//	Assumes that the page table has been initialized, and that
+-//	the object code file is in NOFF format.
++//   pageStart   — first virtual byte of the page  (i * PageSize)
++//   segVA       — segment's virtualAddr field
++//   segSize     — segment's size field
++//   segFileBase — segment's inFileAddr field
++//   readOnly    — TRUE for the readonlyData segment
++//   pi          — PageInfo to fill in on a hit
+ //
+-//	"fileName" is the file containing the object code to load into memory
+-//----------------------------------------------------------------------
+-
+-AddrSpace::AddrSpace(char *fileName) {
+-    OpenFile *executable = kernel->fileSystem->Open(fileName);
+-    NoffHeader noffH;
+-    unsigned int i, size, j, offset;
+-    unsigned int numCodePage,
+-        numDataPage;  // số trang cho phần code và phần initData
+-    int lastCodePageSize, lastDataPageSize, firstDataPageSize,
+-        tempDataSize;  // kích thước ghi vào trang cuối Code, initData, và trang
+-                       // đầu của initData
++// Returns TRUE if the page belongs to this segment (pi filled in),
++// FALSE otherwise (pi unchanged).
++// ---------------------------------------------------------------------------
++static bool ClassifyPage(int pageStart,
++                         int segVA, int segSize, int segFileBase,
++                         bool readOnly,
++                         PageInfo *pi)
++{
++    if (segSize <= 0) return false;                    // segment is empty
++    if (pageStart <  segVA) return false;              // page starts before seg
++    if (pageStart >= segVA + segSize) return false;    // page starts after seg
++
++    int offsetInSeg    = pageStart - segVA;
++    pi->fileOffset     = segFileBase + offsetInSeg;
++    pi->validBytes     = minInt(PageSize, segSize - offsetInSeg);
++    pi->readOnly       = readOnly;
++    return true;
++}
++
++// ===========================================================================
++// AddrSpace()  — default constructor (unused path; kept for compatibility)
++// ===========================================================================
++AddrSpace::AddrSpace()
++    : pageTable(NULL), numPages(0), executable(NULL), pageInfo(NULL)
++{}
+ 
++// ===========================================================================
++// AddrSpace(fileName)  — DEMAND-PAGING constructor
++//
++//  • Reads the noff header to learn segment layout.
++//  • Allocates the page table; marks every PTE invalid.
++//  • Builds pageInfo[] so HandlePageFault knows where each page lives.
++//  • Does NOT allocate any physical frames yet.
++//  • Keeps the executable file open for on-demand loading.
++// ===========================================================================
++AddrSpace::AddrSpace(char *fileName)
++    : pageTable(NULL), numPages(0), executable(NULL), pageInfo(NULL)
++{
++    NoffHeader   noffH;
++    unsigned int size;
++
++    executable = kernel->fileSystem->Open(fileName);
+     if (executable == NULL) {
+-        DEBUG(dbgFile, "\n Error opening file.");
++        DEBUG(dbgFile, "Cannot open executable: " << fileName);
+         return;
+     }
+-    //đọc header của file
++
++    // Read and validate the noff header
+     executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
+     if ((noffH.noffMagic != NOFFMAGIC) &&
+         (WordToHost(noffH.noffMagic) == NOFFMAGIC))
+         SwapHeader(&noffH);
+     ASSERT(noffH.noffMagic == NOFFMAGIC);
+-    kernel->addrLock->P();
+-    // how big is address space?
+-    size = noffH.code.size + noffH.initData.size + noffH.uninitData.size +
+-           UserStackSize;  // we need to increase the size
+-                           // to leave room for the stack
++
++    // -----------------------------------------------------------------------
++    // Print segment map for debugging
++    // -----------------------------------------------------------------------
++    DEBUG(dbgAddr, "noff segments for " << fileName << ":");
++    DEBUG(dbgAddr, "  code      va=0x" << hex << noffH.code.virtualAddr
++          << " size=" << dec << noffH.code.size
++          << " fileOff=0x" << hex << noffH.code.inFileAddr << dec);
++#ifdef RDATA
++    DEBUG(dbgAddr, "  rodata    va=0x" << hex << noffH.readonlyData.virtualAddr
++          << " size=" << dec << noffH.readonlyData.size
++          << " fileOff=0x" << hex << noffH.readonlyData.inFileAddr << dec);
++#endif
++    DEBUG(dbgAddr, "  initData  va=0x" << hex << noffH.initData.virtualAddr
++          << " size=" << dec << noffH.initData.size
++          << " fileOff=0x" << hex << noffH.initData.inFileAddr << dec);
++    DEBUG(dbgAddr, "  uninit    va=0x" << hex << noffH.uninitData.virtualAddr
++          << " size=" << dec << noffH.uninitData.size << dec);
++
++    // -----------------------------------------------------------------------
++    // Compute virtual address space size
++    // -----------------------------------------------------------------------
++    size =  noffH.code.size
++          + noffH.initData.size
++          + noffH.uninitData.size
++          + UserStackSize;
++#ifdef RDATA
++    size += noffH.readonlyData.size;
++#endif
++
+     numPages = divRoundUp(size, PageSize);
+-    size = numPages * PageSize;
+-
+-    ASSERT(numPages <= NumPhysPages);  // check we're not trying
+-                                       // to run anything too big --
+-                                       // at least until we have
+-                                       // virtual memory
+-
+-    // Check the available memory enough to load new process
+-    // debug
+-    if (numPages > kernel->gPhysPageBitMap->NumClear()) {
+-        DEBUG(dbgAddr, "Not enough free space");
+-        numPages = 0;
+-        delete executable;
+-        kernel->addrLock->V();
+-        return;
+-    }
+-    DEBUG(dbgAddr, "Initializing address space: " << numPages << ", " << size);
+-    // first, set up the translation
++    size     = numPages * PageSize;
++
++    DEBUG(dbgAddr, "AddrSpace: " << numPages << " pages (" << size
++          << " bytes) for " << fileName);
++
++    // -----------------------------------------------------------------------
++    // Allocate page table — all entries INVALID until HandlePageFault fires
++    // -----------------------------------------------------------------------
+     pageTable = new TranslationEntry[numPages];
+-    for (i = 0; i < numPages; i++) {
+-        pageTable[i].virtualPage = i;  // for now, virtual page # = phys page #
+-        pageTable[i].physicalPage = kernel->gPhysPageBitMap->FindAndSet();
+-        // cerr << pageTable[i].physicalPage << endl;
+-        pageTable[i].valid = TRUE;
+-        pageTable[i].use = FALSE;
+-        pageTable[i].dirty = FALSE;
+-        pageTable[i].readOnly = FALSE;  // if the code segment was entirely on
+-        // a separate page, we could set its
+-        // pages to be read-only
+-        // xóa các trang này trên memory
+-        bzero(&(kernel->machine
+-                    ->mainMemory[pageTable[i].physicalPage * PageSize]),
+-              PageSize);
+-        DEBUG(dbgAddr, "phyPage " << pageTable[i].physicalPage);
++    for (unsigned int i = 0; i < numPages; i++) {
++        pageTable[i].virtualPage  = i;
++        pageTable[i].physicalPage = (unsigned int)-1;  // invalid sentinel
++        pageTable[i].valid        = FALSE;
++        pageTable[i].use          = FALSE;
++        pageTable[i].dirty        = FALSE;
++        pageTable[i].readOnly     = FALSE;
+     }
+ 
+-    if (noffH.code.size > 0) {
+-        for (i = 0; i < numPages; i++)
+-            executable->ReadAt(
+-                &(kernel->machine->mainMemory[noffH.code.virtualAddr]) +
+-                    (pageTable[i].physicalPage * PageSize),
+-                PageSize, noffH.code.inFileAddr + (i * PageSize));
++    // -----------------------------------------------------------------------
++    // Build pageInfo[] — classify every virtual page into one segment.
++    //
++    // Priority order matters for pages that could straddle boundaries:
++    //   1. code (execute permission)
++    //   2. readonlyData (.rodata — string literals live here with -DRDATA)
++    //   3. initData (.data)
++    //   4. zero-fill (uninitData, stack)
++    // -----------------------------------------------------------------------
++    pageInfo = new PageInfo[numPages];
++
++    for (unsigned int i = 0; i < numPages; i++) {
++        int pageStart = (int)(i * PageSize);
++
++        // --- 1. code segment ---
++        if (ClassifyPage(pageStart,
++                         noffH.code.virtualAddr,
++                         noffH.code.size,
++                         noffH.code.inFileAddr,
++                         false,
++                         &pageInfo[i])) {
++            DEBUG(dbgAddr, "  page " << i << " CODE  fileOff="
++                  << pageInfo[i].fileOffset
++                  << " bytes=" << pageInfo[i].validBytes);
++            continue;
++        }
++
++#ifdef RDATA
++        // --- 2. read-only data segment (.rodata / string literals) ---
++        if (ClassifyPage(pageStart,
++                         noffH.readonlyData.virtualAddr,
++                         noffH.readonlyData.size,
++                         noffH.readonlyData.inFileAddr,
++                         true,   // readOnly = TRUE
++                         &pageInfo[i])) {
++            DEBUG(dbgAddr, "  page " << i << " RODATA fileOff="
++                  << pageInfo[i].fileOffset
++                  << " bytes=" << pageInfo[i].validBytes);
++            continue;
++        }
++#endif
++
++        // --- 3. initialised data segment (.data) ---
++        if (ClassifyPage(pageStart,
++                         noffH.initData.virtualAddr,
++                         noffH.initData.size,
++                         noffH.initData.inFileAddr,
++                         false,
++                         &pageInfo[i])) {
++            DEBUG(dbgAddr, "  page " << i << " DATA  fileOff="
++                  << pageInfo[i].fileOffset
++                  << " bytes=" << pageInfo[i].validBytes);
++            continue;
++        }
++
++        // --- 4. zero-fill: uninitialised data or stack ---
++        pageInfo[i].fileOffset = -1;
++        pageInfo[i].validBytes = 0;
++        pageInfo[i].readOnly   = false;
++        DEBUG(dbgAddr, "  page " << i << " ZERO-FILL");
+     }
+ 
+-    if (noffH.initData.size > 0) {
+-        for (i = 0; i < numPages; i++)
+-            executable->ReadAt(
+-                &(kernel->machine->mainMemory[noffH.initData.virtualAddr]) +
+-                    (pageTable[i].physicalPage * PageSize),
+-                PageSize, noffH.initData.inFileAddr + (i * PageSize));
++    // Executable file stays open — HandlePageFault reads from it on demand.
++    // addrLock / gPhysPageBitMap are NOT touched here (no frames yet).
++}
++
++// ===========================================================================
++// ~AddrSpace
++//
++// Release only the physical frames that were actually faulted in (valid PTEs).
++// Close the executable.
++// ===========================================================================
++AddrSpace::~AddrSpace() {
++    if (pageTable != NULL) {
++        kernel->addrLock->P();
++        for (unsigned int i = 0; i < numPages; i++) {
++            if (pageTable[i].valid) {
++                kernel->gPhysPageBitMap->Clear(pageTable[i].physicalPage);
++                DEBUG(dbgAddr, "  freed phys page "
++                      << pageTable[i].physicalPage);
++            }
++        }
++        kernel->addrLock->V();
++        delete[] pageTable;
++        pageTable = NULL;
+     }
+ 
+-    kernel->addrLock->V();
+-    delete executable;
+-    return;
++    delete[] pageInfo;
++    pageInfo = NULL;
++
++    if (executable != NULL) {
++        delete executable;
++        executable = NULL;
++    }
+ }
+ 
+-//----------------------------------------------------------------------
+-// AddrSpace::Execute
+-// 	Run a user program using the current thread
++// ===========================================================================
++// HandlePageFault
+ //
+-//      The program is assumed to have already been loaded into
+-//      the address space
++// Called from ExceptionHandler when Translate() returns PageFaultException.
++// Steps:
++//   1. Derive VPN from the faulting virtual address.
++//   2. Acquire addrLock to serialise frame allocation.
++//   3. Double-check: another context may have loaded this page while we waited.
++//   4. FindAndSet() a free physical frame.
++//   5. Zero the frame.
++//   6. If page is file-backed, read validBytes from the executable.
++//   7. Mark PTE valid.
++//   8. Increment the page-fault statistics counter.
++//   9. Release addrLock and return.
+ //
+-//----------------------------------------------------------------------
++// The PC is NOT advanced by ExceptionHandler, so Machine::Run() will retry
++// the faulting instruction and this time Translate() will succeed.
++// ===========================================================================
++void AddrSpace::HandlePageFault(unsigned int vaddr) {
++    unsigned int vpn = vaddr / PageSize;
+ 
+-void AddrSpace::Execute() {
+-    kernel->currentThread->space = this;
++    // Sanity-check
++    if (vpn >= numPages) {
++        cerr << "HandlePageFault: vaddr=0x" << hex << vaddr << dec
++             << " vpn=" << vpn << " out of range (numPages=" << numPages << ")\n";
++        kernel->interrupt->Halt();
++        return;
++    }
++
++    // Serialise frame allocation
++    kernel->addrLock->P();
++
++    // Double-check: page may have been loaded by another thread while waiting
++    if (pageTable[vpn].valid) {
++        kernel->addrLock->V();
++        DEBUG(dbgAddr, "HandlePageFault: vpn=" << vpn
++              << " already loaded (race avoided)");
++        return;
++    }
++
++    // Allocate a free physical frame
++    int ppn = kernel->gPhysPageBitMap->FindAndSet();
++    if (ppn == -1) {
++        cerr << "HandlePageFault: out of physical memory! "
++             << "(page replacement not yet implemented)\n";
++        kernel->addrLock->V();
++        kernel->interrupt->Halt();
++        return;
++    }
++
++    DEBUG(dbgAddr, "PageFault: vpn=" << vpn << " -> ppn=" << ppn
++          << "  vaddr=0x" << hex << vaddr << dec);
+ 
+-    this->InitRegisters();  // set the initial register values
+-    this->RestoreState();   // load page table register
++    // Zero the entire frame (handles stack / uninit data and pads partial pages)
++    char *frame = &kernel->machine->mainMemory[ppn * PageSize];
++    bzero(frame, PageSize);
+ 
+-    kernel->machine->Run();  // jump to the user progam
++    // Load file-backed content if this page has any
++    if (pageInfo[vpn].fileOffset != -1 &&
++        pageInfo[vpn].validBytes  >  0  &&
++        executable               != NULL)
++    {
++        executable->ReadAt(frame,
++                           pageInfo[vpn].validBytes,
++                           pageInfo[vpn].fileOffset);
+ 
+-    ASSERTNOTREACHED();  // machine->Run never returns;
+-                         // the address space exits
+-                         // by doing the syscall "exit"
++        DEBUG(dbgAddr, "  loaded " << pageInfo[vpn].validBytes
++              << " bytes from fileOff=" << pageInfo[vpn].fileOffset);
++    }
++
++    // Update the PTE
++    pageTable[vpn].physicalPage = (unsigned int)ppn;
++    pageTable[vpn].valid        = TRUE;
++    pageTable[vpn].use          = FALSE;
++    pageTable[vpn].dirty        = FALSE;
++    pageTable[vpn].readOnly     = pageInfo[vpn].readOnly;
++
++    // Increment the NachOS page-fault statistics counter
++    kernel->stats->numPageFaults++;
++
++    kernel->addrLock->V();
+ }
+ 
+-//----------------------------------------------------------------------
+-// AddrSpace::InitRegisters
+-// 	Set the initial values for the user-level register set.
+-//
+-// 	We write these directly into the "machine" registers, so
+-//	that we can immediately jump to user code.  Note that these
+-//	will be saved/restored into the currentThread->userRegisters
+-//	when this thread is context switched out.
+-//----------------------------------------------------------------------
++// ===========================================================================
++// Execute / InitRegisters / SaveState / RestoreState / Translate
++// (unchanged in structure; Translate returns PageFaultException for invalid
++//  pages, which triggers HandlePageFault via ExceptionHandler)
++// ===========================================================================
++void AddrSpace::Execute() {
++    kernel->currentThread->space = this;
++    this->InitRegisters();
++    this->RestoreState();
++    kernel->machine->Run();
++    ASSERTNOTREACHED();
++}
+ 
+ void AddrSpace::InitRegisters() {
+     Machine *machine = kernel->machine;
+-    int i;
+-
+-    for (i = 0; i < NumTotalRegs; i++) machine->WriteRegister(i, 0);
+-
+-    // Initial program counter -- must be location of "Start", which
+-    //  is assumed to be virtual address zero
+-    machine->WriteRegister(PCReg, 0);
++    for (int i = 0; i < NumTotalRegs; i++)
++        machine->WriteRegister(i, 0);
+ 
+-    // Need to also tell MIPS where next instruction is, because
+-    // of branch delay possibility
+-    // Since instructions occupy four bytes each, the next instruction
+-    // after start will be at virtual address four.
++    machine->WriteRegister(PCReg,     0);
+     machine->WriteRegister(NextPCReg, 4);
+-
+-    // Set the stack register to the end of the address space, where we
+-    // allocated the stack; but subtract off a bit, to make sure we don't
+-    // accidentally reference off the end!
++    // Stack pointer at top of address space minus a safety margin
+     machine->WriteRegister(StackReg, numPages * PageSize - 16);
+-    DEBUG(dbgAddr, "Initializing stack pointer: " << numPages * PageSize - 16);
++    DEBUG(dbgAddr, "Stack pointer = " << numPages * PageSize - 16);
+ }
+ 
+-//----------------------------------------------------------------------
+-// AddrSpace::SaveState
+-// 	On a context switch, save any machine state, specific
+-//	to this address space, that needs saving.
+-//
+-//	For now, don't need to save anything!
+-//----------------------------------------------------------------------
+-
+ void AddrSpace::SaveState() {}
+ 
+-//----------------------------------------------------------------------
+-// AddrSpace::RestoreState
+-// 	On a context switch, restore the machine state so that
+-//	this address space can run.
+-//
+-//      For now, tell the machine where to find the page table.
+-//----------------------------------------------------------------------
+-
+ void AddrSpace::RestoreState() {
+-    kernel->machine->pageTable = pageTable;
++    kernel->machine->pageTable     = pageTable;
+     kernel->machine->pageTableSize = numPages;
+ }
+ 
+-//----------------------------------------------------------------------
+-// AddrSpace::Translate
+-//  Translate the virtual address in _vaddr_ to a physical address
+-//  and store the physical address in _paddr_.
+-//  The flag _isReadWrite_ is false (0) for read-only access; true (1)
+-//  for read-write access.
+-//  Return any exceptions caused by the address translation.
+-//----------------------------------------------------------------------
+ ExceptionType AddrSpace::Translate(unsigned int vaddr, unsigned int *paddr,
+                                    int isReadWrite) {
+-    TranslationEntry *pte;
+-    int pfn;
+-    unsigned int vpn = vaddr / PageSize;
++    unsigned int vpn    = vaddr / PageSize;
+     unsigned int offset = vaddr % PageSize;
+ 
+-    if (vpn >= numPages) {
++    if (vpn >= numPages)
+         return AddressErrorException;
+-    }
+ 
+-    pte = &pageTable[vpn];
++    TranslationEntry *pte = &pageTable[vpn];
+ 
+-    if (isReadWrite && pte->readOnly) {
+-        return ReadOnlyException;
+-    }
++    if (!pte->valid)
++        return PageFaultException;   // handled by ExceptionHandler
+ 
+-    pfn = pte->physicalPage;
++    if (isReadWrite && pte->readOnly)
++        return ReadOnlyException;
+ 
+-    // if the pageFrame is too big, there is something really wrong!
+-    // An invalid translation was loaded into the page table or TLB.
+-    if (pfn >= NumPhysPages) {
++    unsigned int pfn = pte->physicalPage;
++    if (pfn >= (unsigned int)NumPhysPages) {
+         DEBUG(dbgAddr, "Illegal physical page " << pfn);
+         return BusErrorException;
+     }
+ 
+-    pte->use = TRUE;  // set the use, dirty bits
+-
++    pte->use = TRUE;
+     if (isReadWrite) pte->dirty = TRUE;
+ 
+     *paddr = pfn * PageSize + offset;
+-
+-    ASSERT((*paddr < MemorySize));
+-
+-    // cerr << " -- AddrSpace::Translate(): vaddr: " << vaddr <<
+-    //  ", paddr: " << *paddr << "\n";
+-
++    ASSERT(*paddr < (unsigned int)MemorySize);
+     return NoException;
+-}
++}
+\ No newline at end of file
+diff --git a/nachos-project-master/code/userprog/addrspace.h b/nachos-project-master/code/userprog/addrspace.h
+index eb40a1a..ae52a2e 100644
+--- a/nachos-project-master/code/userprog/addrspace.h
++++ b/nachos-project-master/code/userprog/addrspace.h
+@@ -1,15 +1,3 @@
+-// addrspace.h
+-//	Data structures to keep track of executing user programs
+-//	(address spaces).
+-//
+-//	For now, we don't keep any information about address spaces.
+-//	The user level CPU state is saved and restored in the thread
+-//	executing the user program (see thread.h).
+-//
+-// Copyright (c) 1992-1996 The Regents of the University of California.
+-// All rights reserved.  See copyright.h for copyright notice and limitation
+-// of liability and disclaimer of warranty provisions.
+-
+ #ifndef ADDRSPACE_H
+ #define ADDRSPACE_H
+ 
+@@ -18,33 +6,46 @@
+ 
+ #define UserStackSize 1024  // increase this as necessary!
+ 
++// ---------------------------------------------------------------------------
++// PageInfo — records where a virtual page's content lives in the noff file.
++//
++//   fileOffset == -1  →  zero-fill (uninitialised data or stack)
++//   validBytes        →  how many bytes to copy from the file into the frame;
++//                         the rest of the PageSize frame is zeroed.
++//   readOnly          →  TRUE for pages from the readonlyData (.rodata) segment
++// ---------------------------------------------------------------------------
++struct PageInfo {
++    int  fileOffset;  // byte offset inside the noff executable (-1 = zero-fill)
++    int  validBytes;  // bytes to read from the file  (0 .. PageSize)
++    bool readOnly;    // set for read-only data segment pages
++};
++
+ class AddrSpace {
+    public:
+-    AddrSpace();                // Create an address space.
+-    AddrSpace(char *fileName);  // Load a program into addr space from
+-                                // a file
+-    ~AddrSpace();               // De-allocate an address space
+-
+-    void Execute();  // Run a program
+-                     // assumes the program has already
+-                     // been loaded
++    AddrSpace();                // default constructor (kept for compatibility)
++    AddrSpace(char *fileName);  // build page table from noff file (demand paging)
++    ~AddrSpace();               // free physical frames that were allocated
+ 
+-    void SaveState();     // Save/restore address space-specific
+-    void RestoreState();  // info on a context switch
++    void Execute();       // hand control to the user program
++    void SaveState();     // save / restore address-space state on context switch
++    void RestoreState();
+ 
+-    // Translate virtual address _vaddr_
+-    // to physical address _paddr_. _mode_
+-    // is 0 for Read, 1 for Write.
++    // Translate vaddr → paddr.  Returns PageFaultException when the page is
++    // not yet resident; ExceptionHandler will call HandlePageFault and retry.
+     ExceptionType Translate(unsigned int vaddr, unsigned int *paddr, int mode);
+-    // void InitRegisters();
++
++    // Load the faulting virtual page into a free physical frame.
++    // Called by ExceptionHandler on PageFaultException.
++    void HandlePageFault(unsigned int vaddr);
++
+    private:
+-    TranslationEntry *pageTable;  // Assume linear page table translation
+-                                  // for now!
+-    unsigned int numPages;        // Number of pages in the virtual
+-                                  // address space
++    TranslationEntry *pageTable;  // one entry per virtual page
++    unsigned int      numPages;   // total number of virtual pages
++
++    OpenFile  *executable;  // kept open so pages can be loaded on demand
++    PageInfo  *pageInfo;    // one PageInfo per virtual page
+ 
+-    void InitRegisters();  // Initialize user-level CPU registers,
+-                           // before jumping to user code
++    void InitRegisters();   // initialise user-level CPU registers
+ };
+ 
+-#endif  // ADDRSPACE_H
++#endif  // ADDRSPACE_H
+\ No newline at end of file
+diff --git a/nachos-project-master/code/userprog/exception.cc b/nachos-project-master/code/userprog/exception.cc
+index 8a621df..3f93836 100644
+--- a/nachos-project-master/code/userprog/exception.cc
++++ b/nachos-project-master/code/userprog/exception.cc
+@@ -2,14 +2,16 @@
+ #include "main.h"
+ #include "syscall.h"
+ #include "ksyscall.h"
+-// NOTE: openfile_pipe.h removed — pipe dispatch is handled in ksyscall.h
+-//       via gPipeTable, which is checked inside SysRead/SysWrite/SysClose.
++// openfile_pipe.h intentionally NOT included — pipe dispatch is handled
++// entirely through gPipeTable inside SysRead / SysWrite / SysClose.
+ 
++// ---------------------------------------------------------------------------
++// Utility: copy a C-string from user space into a kernel-allocated buffer.
++// ---------------------------------------------------------------------------
+ char* stringUser2System(int addr, int convert_length = -1) {
+-    int length = 0;
+-    bool stop = false;
+-    char* str;
+-
++    int  length = 0;
++    bool stop   = false;
++    char *str;
+     do {
+         int oneChar;
+         kernel->machine->ReadMem(addr + length, 1, &oneChar);
+@@ -17,7 +19,6 @@ char* stringUser2System(int addr, int convert_length = -1) {
+         stop = ((oneChar == '\0' && convert_length == -1) ||
+                 length == convert_length);
+     } while (!stop);
+-
+     str = new char[length];
+     for (int i = 0; i < length; i++) {
+         int oneChar;
+@@ -27,21 +28,24 @@ char* stringUser2System(int addr, int convert_length = -1) {
+     return str;
+ }
+ 
+-void StringSys2User(char* str, int addr, int convert_length = -1) {
+-    int length = (convert_length == -1 ? strlen(str) : convert_length);
+-    for (int i = 0; i < length; i++) {
++void StringSys2User(char *str, int addr, int convert_length = -1) {
++    int length = (convert_length == -1 ? (int)strlen(str) : convert_length);
++    for (int i = 0; i < length; i++)
+         kernel->machine->WriteMem(addr + i, 1, str[i]);
+-    }
+     kernel->machine->WriteMem(addr + length, 1, '\0');
+ }
+ 
++// ---------------------------------------------------------------------------
++// Advance the PC past the current syscall instruction.
++// MUST NOT be called for page faults — the faulting instruction must retry.
++// ---------------------------------------------------------------------------
+ void move_program_counter() {
+     kernel->machine->WriteRegister(PrevPCReg,
+                                    kernel->machine->ReadRegister(PCReg));
+     kernel->machine->WriteRegister(PCReg,
+                                    kernel->machine->ReadRegister(NextPCReg));
+-    kernel->machine->WriteRegister(
+-        NextPCReg, kernel->machine->ReadRegister(NextPCReg) + 4);
++    kernel->machine->WriteRegister(NextPCReg,
++                                   kernel->machine->ReadRegister(NextPCReg) + 4);
+ }
+ 
+ void handle_not_implemented_SC(int type) {
+@@ -56,59 +60,45 @@ void handle_SC_Halt() {
+ }
+ 
+ void handle_SC_Add() {
+-    DEBUG(dbgSys, "Add " << kernel->machine->ReadRegister(4) << " + "
+-                         << kernel->machine->ReadRegister(5) << "\n");
+-    int result;
+-    result = SysAdd((int)kernel->machine->ReadRegister(4),
+-                    (int)kernel->machine->ReadRegister(5));
+-    DEBUG(dbgSys, "Add returning with " << result << "\n");
+-    kernel->machine->WriteRegister(2, (int)result);
++    int result = SysAdd((int)kernel->machine->ReadRegister(4),
++                        (int)kernel->machine->ReadRegister(5));
++    kernel->machine->WriteRegister(2, result);
+     return move_program_counter();
+ }
+ 
+ void handle_SC_Abs() {
+-    DEBUG(dbgSys, "Abs " << kernel->machine->ReadRegister(4) << "\n");
+-    int result;
+-    result = SysAbs((int)kernel->machine->ReadRegister(4));
+-    DEBUG(dbgSys, "Abs returning with " << result << "\n");
+-    kernel->machine->WriteRegister(2, (int)result);
++    int result = SysAbs((int)kernel->machine->ReadRegister(4));
++    kernel->machine->WriteRegister(2, result);
+     return move_program_counter();
+ }
+ 
+ void handle_SC_Sleep() {
+-    int ticks = kernel->machine->ReadRegister(4);
+-    SysSleep(ticks);
++    SysSleep(kernel->machine->ReadRegister(4));
+     return move_program_counter();
+ }
+ 
+ void handle_SC_ReadNum() {
+-    int result = SysReadNum();
+-    kernel->machine->WriteRegister(2, result);
++    kernel->machine->WriteRegister(2, SysReadNum());
+     return move_program_counter();
+ }
+ 
+ void handle_SC_PrintNum() {
+-    int character = kernel->machine->ReadRegister(4);
+-    SysPrintNum(character);
++    SysPrintNum(kernel->machine->ReadRegister(4));
+     return move_program_counter();
+ }
+ 
+ void handle_SC_ReadChar() {
+-    char result = SysReadChar();
+-    kernel->machine->WriteRegister(2, (int)result);
++    kernel->machine->WriteRegister(2, (int)SysReadChar());
+     return move_program_counter();
+ }
+ 
+ void handle_SC_PrintChar() {
+-    char character = (char)kernel->machine->ReadRegister(4);
+-    SysPrintChar(character);
++    SysPrintChar((char)kernel->machine->ReadRegister(4));
+     return move_program_counter();
+ }
+ 
+ void handle_SC_RandomNum() {
+-    int result;
+-    result = SysRandomNum();
+-    kernel->machine->WriteRegister(2, result);
++    kernel->machine->WriteRegister(2, SysRandomNum());
+     return move_program_counter();
+ }
+ 
+@@ -116,97 +106,77 @@ void handle_SC_RandomNum() {
+ void handle_SC_ReadString() {
+     int memPtr = kernel->machine->ReadRegister(4);
+     int length = kernel->machine->ReadRegister(5);
+-    if (length > MAX_READ_STRING_LENGTH) {
+-        DEBUG(dbgSys, "String length exceeds " << MAX_READ_STRING_LENGTH);
+-        SysHalt();
+-    }
+-    char* buffer = SysReadString(length);
++    if (length > MAX_READ_STRING_LENGTH) { SysHalt(); }
++    char *buffer = SysReadString(length);
+     StringSys2User(buffer, memPtr);
+     delete[] buffer;
+     return move_program_counter();
+ }
+ 
+ void handle_SC_PrintString() {
+-    int memPtr = kernel->machine->ReadRegister(4);
+-    char* buffer = stringUser2System(memPtr);
++    int   memPtr = kernel->machine->ReadRegister(4);
++    char *buffer = stringUser2System(memPtr);
+     SysPrintString(buffer, strlen(buffer));
+     delete[] buffer;
+     return move_program_counter();
+ }
+ 
+ void handle_SC_CreateFile() {
+-    int virtAddr = kernel->machine->ReadRegister(4);
+-    char* fileName = stringUser2System(virtAddr);
+-
+-    if (SysCreateFile(fileName))
+-        kernel->machine->WriteRegister(2, 0);
+-    else
+-        kernel->machine->WriteRegister(2, -1);
+-
++    int   virtAddr = kernel->machine->ReadRegister(4);
++    char *fileName = stringUser2System(virtAddr);
++    kernel->machine->WriteRegister(2, SysCreateFile(fileName) ? 0 : -1);
+     delete[] fileName;
+     return move_program_counter();
+ }
+ 
+ void handle_SC_Open() {
+-    int virtAddr = kernel->machine->ReadRegister(4);
+-    char* fileName = stringUser2System(virtAddr);
+-    int type = kernel->machine->ReadRegister(5);
+-
++    int   virtAddr = kernel->machine->ReadRegister(4);
++    char *fileName = stringUser2System(virtAddr);
++    int   type     = kernel->machine->ReadRegister(5);
+     kernel->machine->WriteRegister(2, SysOpen(fileName, type));
+-
+     delete fileName;
+     return move_program_counter();
+ }
+ 
+ void handle_SC_Close() {
+-    int id = kernel->machine->ReadRegister(4);
+-    kernel->machine->WriteRegister(2, SysClose(id));
++    kernel->machine->WriteRegister(2,
++        SysClose(kernel->machine->ReadRegister(4)));
+     return move_program_counter();
+ }
+ 
+ void handle_SC_Read() {
+-    int virtAddr = kernel->machine->ReadRegister(4);
+-    int charCount = kernel->machine->ReadRegister(5);
+-    char* buffer = stringUser2System(virtAddr, charCount);
+-    int fileId = kernel->machine->ReadRegister(6);
+-
+-    DEBUG(dbgFile, "Read " << charCount << " chars from file " << fileId << "\n");
+-
++    int   virtAddr  = kernel->machine->ReadRegister(4);
++    int   charCount = kernel->machine->ReadRegister(5);
++    char *buffer    = stringUser2System(virtAddr, charCount);
++    int   fileId    = kernel->machine->ReadRegister(6);
+     kernel->machine->WriteRegister(2, SysRead(buffer, charCount, fileId));
+     StringSys2User(buffer, virtAddr, charCount);
+-
+     delete[] buffer;
+     return move_program_counter();
+ }
+ 
+ void handle_SC_Write() {
+-    int virtAddr = kernel->machine->ReadRegister(4);
+-    int charCount = kernel->machine->ReadRegister(5);
+-    char* buffer = stringUser2System(virtAddr, charCount);
+-    int fileId = kernel->machine->ReadRegister(6);
+-
+-    DEBUG(dbgFile, "Write " << charCount << " chars to file " << fileId << "\n");
+-
++    int   virtAddr  = kernel->machine->ReadRegister(4);
++    int   charCount = kernel->machine->ReadRegister(5);
++    char *buffer    = stringUser2System(virtAddr, charCount);
++    int   fileId    = kernel->machine->ReadRegister(6);
+     kernel->machine->WriteRegister(2, SysWrite(buffer, charCount, fileId));
+     StringSys2User(buffer, virtAddr, charCount);
+-
+     delete[] buffer;
+     return move_program_counter();
+ }
+ 
+ void handle_SC_Seek() {
+-    int seekPos = kernel->machine->ReadRegister(4);
+-    int fileId = kernel->machine->ReadRegister(5);
+-    kernel->machine->WriteRegister(2, SysSeek(seekPos, fileId));
++    kernel->machine->WriteRegister(2,
++        SysSeek(kernel->machine->ReadRegister(4),
++                kernel->machine->ReadRegister(5)));
+     return move_program_counter();
+ }
+ 
+ void handle_SC_Exec() {
+-    int virtAddr = kernel->machine->ReadRegister(4);
+-    char* name = stringUser2System(virtAddr);
++    int   virtAddr = kernel->machine->ReadRegister(4);
++    char *name     = stringUser2System(virtAddr);
+     if (name == NULL) {
+-        DEBUG(dbgSys, "\n Not enough memory in System");
+-        ASSERT(false);
+         kernel->machine->WriteRegister(2, -1);
+         return move_program_counter();
+     }
+@@ -215,27 +185,23 @@ void handle_SC_Exec() {
+ }
+ 
+ void handle_SC_Join() {
+-    int id = kernel->machine->ReadRegister(4);
+-    kernel->machine->WriteRegister(2, SysJoin(id));
++    kernel->machine->WriteRegister(2,
++        SysJoin(kernel->machine->ReadRegister(4)));
+     return move_program_counter();
+ }
+ 
+ void handle_SC_Exit() {
+-    int id = kernel->machine->ReadRegister(4);
+-    kernel->machine->WriteRegister(2, SysExit(id));
++    kernel->machine->WriteRegister(2,
++        SysExit(kernel->machine->ReadRegister(4)));
+     return move_program_counter();
+ }
+ 
+ void handle_SC_CreateSemaphore() {
+-    int virtAddr = kernel->machine->ReadRegister(4);
+-    int semval = kernel->machine->ReadRegister(5);
+-
+-    char* name = stringUser2System(virtAddr);
++    int   virtAddr = kernel->machine->ReadRegister(4);
++    int   semval   = kernel->machine->ReadRegister(5);
++    char *name     = stringUser2System(virtAddr);
+     if (name == NULL) {
+-        DEBUG(dbgSys, "\n Not enough memory in System");
+-        ASSERT(false);
+         kernel->machine->WriteRegister(2, -1);
+-        delete[] name;
+         return move_program_counter();
+     }
+     kernel->machine->WriteRegister(2, SysCreateSemaphore(name, semval));
+@@ -244,13 +210,10 @@ void handle_SC_CreateSemaphore() {
+ }
+ 
+ void handle_SC_Wait() {
+-    int virtAddr = kernel->machine->ReadRegister(4);
+-    char* name = stringUser2System(virtAddr);
++    int   virtAddr = kernel->machine->ReadRegister(4);
++    char *name     = stringUser2System(virtAddr);
+     if (name == NULL) {
+-        DEBUG(dbgSys, "\n Not enough memory in System");
+-        ASSERT(false);
+         kernel->machine->WriteRegister(2, -1);
+-        delete[] name;
+         return move_program_counter();
+     }
+     kernel->machine->WriteRegister(2, SysWait(name));
+@@ -259,13 +222,10 @@ void handle_SC_Wait() {
+ }
+ 
+ void handle_SC_Signal() {
+-    int virtAddr = kernel->machine->ReadRegister(4);
+-    char* name = stringUser2System(virtAddr);
++    int   virtAddr = kernel->machine->ReadRegister(4);
++    char *name     = stringUser2System(virtAddr);
+     if (name == NULL) {
+-        DEBUG(dbgSys, "\n Not enough memory in System");
+-        ASSERT(false);
+         kernel->machine->WriteRegister(2, -1);
+-        delete[] name;
+         return move_program_counter();
+     }
+     kernel->machine->WriteRegister(2, SysSignal(name));
+@@ -278,47 +238,95 @@ void handle_SC_GetPid() {
+     return move_program_counter();
+ }
+ 
++// ===========================================================================
++// ExceptionHandler
++//
++// DEMAND PAGING:
++//   PageFaultException is caught here. We call HandlePageFault() which
++//   allocates a physical frame and loads the missing page from the
++//   executable. We then RETURN WITHOUT advancing the PC, so Machine::Run()
++//   retries the faulting instruction — this time finding a valid PTE.
++// ===========================================================================
+ void ExceptionHandler(ExceptionType which) {
+     int type = kernel->machine->ReadRegister(2);
+-
+-    DEBUG(dbgSys, "Received Exception " << which << " type: " << type << "\n");
++    DEBUG(dbgSys, "Exception " << which << " type=" << type << "\n");
+ 
+     switch (which) {
++
++        // -------------------------------------------------------------------
+         case NoException:
+             kernel->interrupt->setStatus(SystemMode);
+             DEBUG(dbgSys, "Switch to system mode\n");
+-            break;
+-        case PageFaultException:
++            return;   // return — do NOT fall through to ASSERTNOTREACHED()
++
++        // -------------------------------------------------------------------
++        // DEMAND PAGING — handle transparently, retry the instruction
++        // -------------------------------------------------------------------
++        case PageFaultException: {
++            unsigned int badVAddr =
++                (unsigned int)kernel->machine->ReadRegister(BadVAddrReg);
++            DEBUG(dbgAddr, "PageFaultException vaddr=" << badVAddr);
++
++            if (kernel->currentThread->space == NULL) {
++                cerr << "PageFaultException with no address space!\n";
++                SysHalt();
++                ASSERTNOTREACHED();
++            }
++
++            // Load the missing page; page table entry becomes valid.
++            kernel->currentThread->space->HandlePageFault(badVAddr);
++
++            // Do NOT call move_program_counter().
++            // The PC still points at the faulting instruction.
++            // Machine::Run() will retry it now that the page is present.
++            return;
++        }
++
++        // -------------------------------------------------------------------
++        // Fatal hardware exceptions
++        // -------------------------------------------------------------------
+         case ReadOnlyException:
++            cerr << "ReadOnlyException vaddr="
++                 << kernel->machine->ReadRegister(BadVAddrReg) << "\n";
++            SysHalt(); ASSERTNOTREACHED();
++
+         case BusErrorException:
++            cerr << "BusErrorException vaddr="
++                 << kernel->machine->ReadRegister(BadVAddrReg) << "\n";
++            SysHalt(); ASSERTNOTREACHED();
++
+         case AddressErrorException:
++            cerr << "AddressErrorException vaddr="
++                 << kernel->machine->ReadRegister(BadVAddrReg) << "\n";
++            SysHalt(); ASSERTNOTREACHED();
++
+         case OverflowException:
++            cerr << "OverflowException\n";
++            SysHalt(); ASSERTNOTREACHED();
++
+         case IllegalInstrException:
++            cerr << "IllegalInstrException\n";
++            SysHalt(); ASSERTNOTREACHED();
++
+         case NumExceptionTypes:
+-            cerr << "Error " << which << " occurs\n";
+-            SysHalt();
+-            ASSERTNOTREACHED();
++            cerr << "NumExceptionTypes exception\n";
++            SysHalt(); ASSERTNOTREACHED();
+ 
++        // -------------------------------------------------------------------
++        // System calls
++        // -------------------------------------------------------------------
+         case SyscallException:
+             switch (type) {
+-                case SC_Halt:
+-                    return handle_SC_Halt();
+-                case SC_Add:
+-                    return handle_SC_Add();
+-                case SC_Abs:
+-                    return handle_SC_Abs();
+-                case SC_Sleep:
+-                    return handle_SC_Sleep();
++                case SC_Halt:             return handle_SC_Halt();
++                case SC_Add:              return handle_SC_Add();
++                case SC_Abs:             return handle_SC_Abs();
++                case SC_Sleep:            return handle_SC_Sleep();
+ 
+                 case SC_Pipe: {
+                     int readFDptr  = kernel->machine->ReadRegister(4);
+                     int writeFDptr = kernel->machine->ReadRegister(5);
+-
+-                    int readFD  = -1;
+-                    int writeFD = -1;
+-
++                    int readFD = -1, writeFD = -1;
+                     int result = SysPipe(&readFD, &writeFD);
+-
+                     if (result == 0) {
+                         kernel->machine->WriteMem(readFDptr,  4, readFD);
+                         kernel->machine->WriteMem(writeFDptr, 4, writeFD);
+@@ -326,11 +334,6 @@ void ExceptionHandler(ExceptionType which) {
+                     } else {
+                         kernel->machine->WriteRegister(2, -1);
+                     }
+-
+-                    DEBUG(dbgSys, "SC_Pipe: readFD=" << readFD
+-                                  << " writeFD=" << writeFD
+-                                  << " result=" << result << "\n");
+-
+                     kernel->machine->WriteRegister(PrevPCReg,
+                         kernel->machine->ReadRegister(PCReg));
+                     kernel->machine->WriteRegister(PCReg,
+@@ -340,46 +343,26 @@ void ExceptionHandler(ExceptionType which) {
+                     return;
+                 }
+ 
+-                case SC_ReadNum:
+-                    return handle_SC_ReadNum();
+-                case SC_PrintNum:
+-                    return handle_SC_PrintNum();
+-                case SC_ReadChar:
+-                    return handle_SC_ReadChar();
+-                case SC_PrintChar:
+-                    return handle_SC_PrintChar();
+-                case SC_RandomNum:
+-                    return handle_SC_RandomNum();
+-                case SC_ReadString:
+-                    return handle_SC_ReadString();
+-                case SC_PrintString:
+-                    return handle_SC_PrintString();
+-                case SC_CreateFile:
+-                    return handle_SC_CreateFile();
+-                case SC_Open:
+-                    return handle_SC_Open();
+-                case SC_Close:
+-                    return handle_SC_Close();
+-                case SC_Read:
+-                    return handle_SC_Read();
+-                case SC_Write:
+-                    return handle_SC_Write();
+-                case SC_Seek:
+-                    return handle_SC_Seek();
+-                case SC_Exec:
+-                    return handle_SC_Exec();
+-                case SC_Join:
+-                    return handle_SC_Join();
+-                case SC_Exit:
+-                    return handle_SC_Exit();
+-                case SC_CreateSemaphore:
+-                    return handle_SC_CreateSemaphore();
+-                case SC_Wait:
+-                    return handle_SC_Wait();
+-                case SC_Signal:
+-                    return handle_SC_Signal();
+-                case SC_GetPid:
+-                    return handle_SC_GetPid();
++                case SC_ReadNum:          return handle_SC_ReadNum();
++                case SC_PrintNum:         return handle_SC_PrintNum();
++                case SC_ReadChar:         return handle_SC_ReadChar();
++                case SC_PrintChar:        return handle_SC_PrintChar();
++                case SC_RandomNum:        return handle_SC_RandomNum();
++                case SC_ReadString:       return handle_SC_ReadString();
++                case SC_PrintString:      return handle_SC_PrintString();
++                case SC_CreateFile:       return handle_SC_CreateFile();
++                case SC_Open:             return handle_SC_Open();
++                case SC_Close:            return handle_SC_Close();
++                case SC_Read:             return handle_SC_Read();
++                case SC_Write:            return handle_SC_Write();
++                case SC_Seek:             return handle_SC_Seek();
++                case SC_Exec:             return handle_SC_Exec();
++                case SC_Join:             return handle_SC_Join();
++                case SC_Exit:             return handle_SC_Exit();
++                case SC_CreateSemaphore:  return handle_SC_CreateSemaphore();
++                case SC_Wait:             return handle_SC_Wait();
++                case SC_Signal:           return handle_SC_Signal();
++                case SC_GetPid:           return handle_SC_GetPid();
+ 
+                 case SC_Create:
+                 case SC_Remove:
+@@ -391,13 +374,16 @@ void ExceptionHandler(ExceptionType which) {
+                     return handle_not_implemented_SC(type);
+ 
+                 default:
+-                    cerr << "Unexpected system call " << type << "\n";
+-                    break;
++                    cerr << "Unexpected syscall " << type << "\n";
++                    SysHalt();
++                    ASSERTNOTREACHED();
+             }
+             break;
++
+         default:
+-            cerr << "Unexpected user mode exception" << (int)which << "\n";
+-            break;
++            cerr << "Unexpected exception " << (int)which << "\n";
++            SysHalt();
++            ASSERTNOTREACHED();
+     }
+     ASSERTNOTREACHED();
+ }
+\ No newline at end of file
