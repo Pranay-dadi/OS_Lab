@@ -1,0 +1,197 @@
+diff --git a/.vscode/settings.json b/.vscode/settings.json
+deleted file mode 100644
+index 70e34ec..0000000
+--- a/.vscode/settings.json
++++ /dev/null
+@@ -1,3 +0,0 @@
+-{
+-    "C_Cpp.errorSquiggles": "disabled"
+-}
+\ No newline at end of file
+diff --git a/nachos-project-master/code/test/Makefile b/nachos-project-master/code/test/Makefile
+index 2adeb66..c2dd38f 100644
+--- a/nachos-project-master/code/test/Makefile
++++ b/nachos-project-master/code/test/Makefile
+@@ -112,7 +112,7 @@ ifeq ($(hosttype),unknown)
+ PROGRAMS = unknownhost
+ else
+ # change this if you create a new test program!
+-PROGRAMS = add abs sleep halt shell matmult sort segments test_syscall num_io char_io random str_io ascii bubblesort help create_file open_file readwrite exec test_sem sinhvien voinuoc main
++PROGRAMS = add abs halt shell matmult sort segments test_syscall num_io char_io random str_io ascii bubblesort help create_file open_file readwrite exec test_sem sinhvien voinuoc main
+ endif
+ 
+ all: $(PROGRAMS)
+@@ -133,10 +133,6 @@ abs: abs.o start.o
+ 	$(LD) $(LDFLAGS) start.o abs.o -o abs.coff
+ 	$(COFF2NOFF) abs.coff abs
+ 
+-sleep: sleep.o start.o
+-	$(LD) $(LDFLAGS) start.o sleep.o -o sleep.coff
+-	$(COFF2NOFF) sleep.coff sleep
+-
+ add.o: add.c
+ 	$(CC) $(CFLAGS) -c add.c
+ 
+diff --git a/nachos-project-master/code/test/sleep.c b/nachos-project-master/code/test/sleep.c
+deleted file mode 100644
+index 0d221d1..0000000
+--- a/nachos-project-master/code/test/sleep.c
++++ /dev/null
+@@ -1,8 +0,0 @@
+-#include "syscall.h"
+-
+-int main() {
+-    PrintString("Starting sleep...\n");
+-    Sleep(100000);
+-    PrintString("Woke up after given number of ticks!\n");
+-    Halt();
+-}
+\ No newline at end of file
+diff --git a/nachos-project-master/code/threads/alarm.cc b/nachos-project-master/code/threads/alarm.cc
+index 53eb97a..ce30385 100644
+--- a/nachos-project-master/code/threads/alarm.cc
++++ b/nachos-project-master/code/threads/alarm.cc
+@@ -40,38 +40,11 @@ Alarm::Alarm(bool doRandom) { timer = new Timer(doRandom, this); }
+ //      if we're currently running something (in other words, not idle).
+ //----------------------------------------------------------------------
+ 
+-void Alarm::WaitUntil(int x) {
+-    IntStatus oldLevel = kernel->interrupt->SetLevel(IntOff);
+-    
+-    SleepEntry* entry = new SleepEntry();
+-    entry->thread = kernel->currentThread;
+-    entry->wakeTime = kernel->stats->totalTicks + x;
+-    sleepQueue.Append(entry);
+-    
+-    kernel->currentThread->Sleep(false);
+-    (void)kernel->interrupt->SetLevel(oldLevel);
+-}
+-
+-
+ void Alarm::CallBack() {
+-    Interrupt* interrupt = kernel->interrupt;
++    Interrupt *interrupt = kernel->interrupt;
+     MachineStatus status = interrupt->getStatus();
+-    int now = kernel->stats->totalTicks;
+ 
+-    // Wake threads whose time has come
+-    List<SleepEntry*> remaining;
+-    while (!sleepQueue.IsEmpty()) {
+-        SleepEntry* e = sleepQueue.RemoveFront();
+-        if (e->wakeTime <= now) {
+-            kernel->scheduler->ReadyToRun(e->thread);
+-            delete e;
+-        } else {
+-            remaining.Append(e);
+-        }
+-    }
+-    while (!remaining.IsEmpty())
+-        sleepQueue.Append(remaining.RemoveFront());
+-
+-    if (status != IdleMode)
++    if (status != IdleMode) {
+         interrupt->YieldOnReturn();
+-}
+\ No newline at end of file
++    }
++}
+diff --git a/nachos-project-master/code/threads/alarm.h b/nachos-project-master/code/threads/alarm.h
+index 40252a4..af6dd02 100644
+--- a/nachos-project-master/code/threads/alarm.h
++++ b/nachos-project-master/code/threads/alarm.h
+@@ -21,13 +21,6 @@
+ #include "utility.h"
+ #include "callback.h"
+ #include "timer.h"
+-#include "list.h"
+-#include "thread.h" 
+-
+-struct SleepEntry {
+-    Thread* thread;
+-    int wakeTime;
+-};
+ 
+ // The following class defines a software alarm clock.
+ class Alarm : public CallBackObj {
+@@ -41,7 +34,7 @@ class Alarm : public CallBackObj {
+ 
+    private:
+     Timer *timer;  // the hardware timer device
+-    List<SleepEntry*> sleepQueue;
++
+     void CallBack();  // called when the hardware
+                       // timer generates an interrupt
+ };
+diff --git a/nachos-project-master/code/threads/prioritytest.cc b/nachos-project-master/code/threads/prioritytest.cc
+index 7d99d8e..9434a7f 100644
+--- a/nachos-project-master/code/threads/prioritytest.cc
++++ b/nachos-project-master/code/threads/prioritytest.cc
+@@ -13,7 +13,7 @@ PriorityThread(void* arg)
+     for (int i = 0; i < 5; i++) {
+         printf("Thread %d running at tick %d\n",
+                id, kernel->stats->totalTicks);
+-        kernel->interrupt->OneTick();
++        kernel->currentThread->Yield();
+     }
+ }
+ 
+diff --git a/nachos-project-master/code/userprog/exception.cc b/nachos-project-master/code/userprog/exception.cc
+index 946f724..b39d8e2 100644
+--- a/nachos-project-master/code/userprog/exception.cc
++++ b/nachos-project-master/code/userprog/exception.cc
+@@ -169,12 +169,6 @@ void handle_SC_Abs() {
+     return move_program_counter();
+ }
+ 
+-void handle_SC_Sleep() {
+-    int ticks = kernel->machine->ReadRegister(4);
+-    SysSleep(ticks);
+-    return move_program_counter();
+-}
+-
+ void handle_SC_ReadNum() {
+     int result = SysReadNum();
+     kernel->machine->WriteRegister(2, result);
+@@ -444,8 +438,6 @@ void ExceptionHandler(ExceptionType which) {
+                     return handle_SC_Add();
+                 case SC_Abs:
+                     return handle_SC_Abs();
+-                case SC_Sleep:
+-                    return handle_SC_Sleep();
+                 case SC_ReadNum:
+                     return handle_SC_ReadNum();
+                 case SC_PrintNum:
+diff --git a/nachos-project-master/code/userprog/ksyscall.h b/nachos-project-master/code/userprog/ksyscall.h
+index 3ddef3c..a5436fc 100644
+--- a/nachos-project-master/code/userprog/ksyscall.h
++++ b/nachos-project-master/code/userprog/ksyscall.h
+@@ -255,8 +255,4 @@ int SysSignal(char* name) {
+ 
+ int SysGetPid() { return kernel->currentThread->processID; }
+ 
+-void SysSleep(int ticks) {
+-    kernel->alarm->WaitUntil(ticks);
+-}
+-
+ #endif /* ! __USERPROG_KSYSCALL_H__ */
+diff --git a/nachos-project-master/code/userprog/syscall.h b/nachos-project-master/code/userprog/syscall.h
+index 56104c2..954b655 100644
+--- a/nachos-project-master/code/userprog/syscall.h
++++ b/nachos-project-master/code/userprog/syscall.h
+@@ -49,7 +49,6 @@
+ #define SC_Signal 53
+ #define SC_GetPid 54
+ #define SC_Abs 55
+-#define SC_Sleep 56
+ 
+ #ifndef IN_ASM
+ 
+@@ -71,8 +70,6 @@ void Halt();
+  */
+ int Abs(int num);
+ 
+-void Sleep(int ticks);
+-
+ int Add(int op1, int op2);
+ 
+ int ReadNum();
