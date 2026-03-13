@@ -17,6 +17,8 @@
 #include "synchconsole.h"
 #include "synchdisk.h"
 #include "post.h"
+#include "pipetable.h"
+
 
 #define MAX_PROCESS 10
 //----------------------------------------------------------------------
@@ -111,6 +113,7 @@ void Kernel::Initialize(char *userProgName /*=NULL*/) {
     gPhysPageBitMap = new Bitmap(128);
     semTab = new STable();
     pTab = new PTable(MAX_PROCESS);
+    gPipeTable = new PipeTable();
 
     interrupt->Enable();
 }
@@ -136,6 +139,10 @@ Kernel::~Kernel() {
     delete gPhysPageBitMap;
     delete semTab;
     delete addrLock;
+        if (gPipeTable != NULL) {
+        delete gPipeTable;
+        gPipeTable = NULL;
+    }
 
     Exit(0);
 }

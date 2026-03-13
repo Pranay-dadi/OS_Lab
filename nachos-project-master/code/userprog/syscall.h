@@ -50,6 +50,7 @@
 #define SC_GetPid 54
 #define SC_Abs 55
 #define SC_Sleep 56
+#define SC_Pipe 57
 
 #ifndef IN_ASM
 
@@ -72,6 +73,8 @@ void Halt();
 int Abs(int num);
 
 void Sleep(int ticks);
+
+int Pipe(int *readfd_ptr, int *writefd_ptr);
 
 int Add(int op1, int op2);
 

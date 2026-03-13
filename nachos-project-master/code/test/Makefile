@@ -112,7 +112,7 @@ ifeq ($(hosttype),unknown)
 PROGRAMS = unknownhost
 else
 # change this if you create a new test program!
-PROGRAMS = add abs sleep halt shell matmult sort segments test_syscall num_io char_io random str_io ascii bubblesort help create_file open_file readwrite exec test_sem sinhvien voinuoc main
+PROGRAMS = add abs pipetest sleep halt shell matmult sort segments test_syscall num_io char_io random str_io ascii bubblesort help create_file open_file readwrite exec test_sem sinhvien voinuoc main
 endif
 
 all: $(PROGRAMS)
@@ -132,6 +132,16 @@ abs.o: abs.c
 abs: abs.o start.o
 	$(LD) $(LDFLAGS) start.o abs.o -o abs.coff
 	$(COFF2NOFF) abs.coff abs
+
+pipetest.o: pipetest.c
+	$(CC) $(CFLAGS) -c pipetest.c
+
+pipetest: pipetest.o start.o
+	$(LD) $(LDFLAGS) start.o pipetest.o -o pipetest.coff
+	$(COFF2NOFF) pipetest.coff pipetest
+
+sleep.o: sleep.c
+	$(CC) $(CFLAGS) -c sleep.c
 
 sleep: sleep.o start.o
 	$(LD) $(LDFLAGS) start.o sleep.o -o sleep.coff

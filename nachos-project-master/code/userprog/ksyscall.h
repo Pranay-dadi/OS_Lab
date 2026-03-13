@@ -15,8 +15,27 @@
 #include "synchconsole.h"
 #include "ksyscallhelper.h"
 #include <stdlib.h>
+#include "pipe.h"
+#include "pipetable.h"
 
 void SysHalt() { kernel->interrupt->Halt(); }
+
+int SysPipe(int *readFD, int *writeFD)
+{
+    if (gPipeTable == NULL) {
+        DEBUG(dbgSys, "SysPipe: gPipeTable not initialised!\n");
+        return -1;
+    }
+
+    int r = -1, w = -1;
+    int result = gPipeTable->AllocPipe(&r, &w);
+    if (result == 0) {
+        *readFD  = r;
+        *writeFD = w;
+        DEBUG(dbgSys, "SysPipe: readFD=" << r << " writeFD=" << w << "\n");
+    }
+    return result;
+}
 
 int SysAdd(int op1, int op2) { return op1 + op2; }
 
@@ -175,19 +194,41 @@ int SysOpen(char* fileName, int type) {
     return id;
 }
 
-int SysClose(int id) { return kernel->fileSystem->Close(id); }
-
-int SysRead(char* buffer, int charCount, int fileId) {
-    if (fileId == 0) {
-        return kernel->synchConsoleIn->GetString(buffer, charCount);
+int SysClose(int id) {
+    if (gPipeTable != NULL && gPipeTable->IsPipeFD(id)) {
+        gPipeTable->Close(id);
+        return 1;
     }
+    return kernel->fileSystem->Close(id);
+}
+
+// -----------------------------------------------------------------------
+int SysRead(char* buffer, int charCount, int fileId) {
+    // stdin
+    if (fileId == 0)
+        return kernel->synchConsoleIn->GetString(buffer, charCount);
+
+    // pipe read end
+    if (gPipeTable != NULL && gPipeTable->IsPipeFD(fileId))
+        return gPipeTable->Read(fileId, buffer, charCount);
+
+    // regular file
     return kernel->fileSystem->Read(buffer, charCount, fileId);
 }
 
+// -----------------------------------------------------------------------
+// SysWrite  —  checks pipe table first
+// -----------------------------------------------------------------------
 int SysWrite(char* buffer, int charCount, int fileId) {
-    if (fileId == 1) {
+    // stdout
+    if (fileId == 1)
         return kernel->synchConsoleOut->PutString(buffer, charCount);
-    }
+
+    // pipe write end
+    if (gPipeTable != NULL && gPipeTable->IsPipeFD(fileId))
+        return gPipeTable->Write(fileId, buffer, charCount);
+
+    // regular file
     return kernel->fileSystem->Write(buffer, charCount, fileId);
 }
 
