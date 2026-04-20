@@ -118,12 +118,40 @@ AddrSpace::AddrSpace(char *fileName)
           + noffH.initData.size
           + noffH.uninitData.size
           + UserStackSize;
-#ifdef RDATA
+    #ifdef RDATA
     size += noffH.readonlyData.size;
-#endif
+    #endif
 
     numPages = divRoundUp(size, PageSize);
     size     = numPages * PageSize;
+
+    // Find the highest virtual address used by any segment, then
+    // round UP to the next page boundary — that is where heap starts.
+    unsigned int segTop = 0;
+
+    if (noffH.code.size > 0) {
+        unsigned int end = noffH.code.virtualAddr + noffH.code.size;
+        if (end > segTop) segTop = end;
+    }
+    if (noffH.initData.size > 0) {
+        unsigned int end = noffH.initData.virtualAddr + noffH.initData.size;
+        if (end > segTop) segTop = end;
+    }
+    if (noffH.uninitData.size > 0 && noffH.uninitData.virtualAddr < 0x10000000u) {
+        // Guard against the garbage uninitData value seen in your binary
+        unsigned int end = noffH.uninitData.virtualAddr + noffH.uninitData.size;
+        if (end > segTop) segTop = end;
+    }
+    #ifdef RDATA
+    if (noffH.readonlyData.size > 0) {
+        unsigned int end = noffH.readonlyData.virtualAddr + noffH.readonlyData.size;
+        if (end > segTop) segTop = end;
+    }
+    #endif
+
+    // Round up to next page boundary
+    heapStart = divRoundUp(segTop, PageSize) * PageSize;
+    heapTop   = heapStart;
 
     DEBUG(dbgAddr, "AddrSpace: " << numPages << " pages (" << size
           << " bytes) for " << fileName);
@@ -318,6 +346,234 @@ void AddrSpace::HandlePageFault(unsigned int vaddr) {
     kernel->stats->numPageFaults++;
 
     kernel->addrLock->V();
+}
+
+// ===========================================================================
+// ReadBlock / WriteBlock — access HeapBlock headers in simulated user memory
+// ===========================================================================
+HeapBlock AddrSpace::ReadBlock(int vaddr) {
+    HeapBlock b;
+    int word;
+    if (!kernel->machine->ReadMem(vaddr,     4, &word)) kernel->machine->ReadMem(vaddr,     4, &word);
+    b.size = word;
+    if (!kernel->machine->ReadMem(vaddr + 4, 4, &word)) kernel->machine->ReadMem(vaddr + 4, 4, &word);
+    b.free = (bool)word;
+    if (!kernel->machine->ReadMem(vaddr + 8, 4, &word)) kernel->machine->ReadMem(vaddr + 8, 4, &word);
+    b.next = word;
+    return b;
+}
+
+void AddrSpace::WriteBlock(int vaddr, HeapBlock b) {
+    if (!kernel->machine->WriteMem(vaddr,     4, b.size))  kernel->machine->WriteMem(vaddr,     4, b.size);
+    if (!kernel->machine->WriteMem(vaddr + 4, 4, (int)b.free)) kernel->machine->WriteMem(vaddr + 4, 4, (int)b.free);
+    if (!kernel->machine->WriteMem(vaddr + 8, 4, b.next))  kernel->machine->WriteMem(vaddr + 8, 4, b.next);
+}
+
+// ===========================================================================
+// SysBreak — grow heap by delta bytes.
+// Returns old heapTop (the address where new block header goes), -1 on fail.
+// ===========================================================================
+int AddrSpace::SysBreak(int delta) {
+    unsigned int oldTop = heapTop;
+    unsigned int newTop = heapTop + (unsigned int)delta;
+
+    // Guard: must not grow into stack area
+    if (newTop >= numPages * PageSize - UserStackSize)
+        return -1;
+
+    // Allocate physical frames for any newly spanned pages
+    unsigned int firstNewPage = divRoundUp(oldTop,  PageSize);
+    unsigned int lastNewPage  = divRoundUp(newTop,  PageSize);
+
+    kernel->addrLock->P();
+    for (unsigned int p = firstNewPage; p < lastNewPage; p++) {
+        if (p >= numPages) { kernel->addrLock->V(); return -1; }
+        if (!pageTable[p].valid) {
+            int ppn = kernel->gPhysPageBitMap->FindAndSet();
+            if (ppn == -1) { kernel->addrLock->V(); return -1; }
+            bzero(&kernel->machine->mainMemory[ppn * PageSize], PageSize);
+            pageTable[p].physicalPage = (unsigned int)ppn;
+            pageTable[p].valid        = TRUE;
+            pageTable[p].readOnly     = FALSE;
+            pageTable[p].use          = FALSE;
+            pageTable[p].dirty        = FALSE;
+        }
+    }
+    kernel->addrLock->V();
+
+    heapTop = newTop;
+    return (int)oldTop;
+}
+
+// ===========================================================================
+// ShrinkHeap — shrink heapTop down to newTop.
+// Releases physical frames that are no longer needed.
+// Returns true on success, false if newTop is invalid.
+// ===========================================================================
+bool AddrSpace::ShrinkHeap(unsigned int newTop) {
+    if (newTop < heapStart || newTop > heapTop)
+        return false;
+
+    // Release physical frames that are now entirely above newTop
+    unsigned int firstFreePage = divRoundUp(newTop,    PageSize);
+    unsigned int lastUsedPage  = divRoundUp(heapTop,   PageSize);
+
+    kernel->addrLock->P();
+    for (unsigned int p = firstFreePage; p < lastUsedPage; p++) {
+        if (p < numPages && pageTable[p].valid) {
+            kernel->gPhysPageBitMap->Clear(pageTable[p].physicalPage);
+            pageTable[p].valid        = FALSE;
+            pageTable[p].physicalPage = (unsigned int)-1;
+            DEBUG(dbgAddr, "ShrinkHeap: freed phys frame for vpage " << p);
+        }
+    }
+    kernel->addrLock->V();
+
+    heapTop = newTop;
+    DEBUG(dbgAddr, "ShrinkHeap: heapTop now " << heapTop);
+    return true;
+}
+
+// ===========================================================================
+// SysMalloc — first-fit allocator
+//
+// Memory layout of each allocation:
+//   [ HeapBlock header : 12 bytes | user data : size bytes ]
+//
+// Returns virtual address of user data (just past the header), 0 on failure.
+// ===========================================================================
+int AddrSpace::SysMalloc(int size) {
+    if (size <= 0) return 0;
+
+    // --- Pass 1: first-fit search through existing free blocks ---
+    if (heapTop > heapStart) {
+        int cur = (int)heapStart;
+        while (cur != -1) {
+            HeapBlock b = ReadBlock(cur);
+            if (b.free && b.size >= size) {
+                b.free = false;
+                WriteBlock(cur, b);
+                DEBUG(dbgAddr, "SysMalloc: reused block at " << cur
+                      << " size=" << b.size);
+                return cur + BLOCK_HEADER_SIZE;
+            }
+            cur = b.next;
+        }
+    }
+
+    // --- Pass 2: extend the heap ---
+    int headerAddr = SysBreak(BLOCK_HEADER_SIZE + size);
+    if (headerAddr == -1) {
+        DEBUG(dbgAddr, "SysMalloc: out of memory for size=" << size);
+        return 0;
+    }
+
+    // Link this new block onto the end of the list
+    if ((unsigned int)headerAddr > heapStart) {
+        int cur = (int)heapStart;
+        while (true) {
+            HeapBlock tmp = ReadBlock(cur);
+            if (tmp.next == -1) {
+                tmp.next = headerAddr;
+                WriteBlock(cur, tmp);
+                break;
+            }
+            cur = tmp.next;
+        }
+    }
+
+    HeapBlock b;
+    b.size = size;
+    b.free = false;
+    b.next = -1;
+    WriteBlock(headerAddr, b);
+
+    DEBUG(dbgAddr, "SysMalloc: new block at " << headerAddr
+          << " size=" << size << " heapTop=" << heapTop);
+    return headerAddr + BLOCK_HEADER_SIZE;
+}
+
+// ===========================================================================
+// SysFree — mark block free, coalesce neighbours, shrink heap if possible.
+//
+// Steps:
+//   1. Validate the pointer.
+//   2. Mark block free.
+//   3. Forward-coalesce: merge any adjacent free blocks.
+//   4. Tail-trim: if the last block in the list is free, remove it from the
+//      list entirely and call ShrinkHeap() to give physical frames back.
+// ===========================================================================
+void AddrSpace::SysFree(int ptr) {
+    if (ptr == 0) return;
+
+    int headerAddr = ptr - BLOCK_HEADER_SIZE;
+
+    // Sanity bounds check
+    if ((unsigned int)headerAddr < heapStart ||
+        (unsigned int)headerAddr >= heapTop) {
+        DEBUG(dbgAddr, "SysFree: invalid pointer " << ptr);
+        return;
+    }
+
+    // Step 1: mark free
+    HeapBlock b = ReadBlock(headerAddr);
+    b.free = true;
+    WriteBlock(headerAddr, b);
+    DEBUG(dbgAddr, "SysFree: freed block at " << headerAddr
+          << " size=" << b.size);
+
+    // Step 2: forward coalesce — one full pass
+    int cur = (int)heapStart;
+    while (cur != -1) {
+        HeapBlock curr = ReadBlock(cur);
+        if (curr.free && curr.next != -1) {
+            HeapBlock nxt = ReadBlock(curr.next);
+            if (nxt.free) {
+                // Absorb next into current
+                curr.size += BLOCK_HEADER_SIZE + nxt.size;
+                curr.next  = nxt.next;
+                WriteBlock(cur, curr);
+                // Don't advance cur — re-check same block
+                continue;
+            }
+        }
+        cur = curr.next;
+    }
+
+    // Step 3: tail-trim — while the last block is free, remove and shrink
+    while (true) {
+        if (heapTop == heapStart) break;  // heap is empty
+
+        // Find the second-to-last and last blocks
+        int prev = -1;
+        int cur2 = (int)heapStart;
+        while (true) {
+            HeapBlock tmp = ReadBlock(cur2);
+            if (tmp.next == -1) break;   // cur2 is last
+            prev = cur2;
+            cur2 = tmp.next;
+        }
+
+        HeapBlock last = ReadBlock(cur2);
+        if (!last.free) break;  // last block is still in use — stop
+
+        // Remove last block from the list
+        if (prev == -1) {
+            // The only block in the list — heap goes completely empty
+            ShrinkHeap(heapStart);
+        } else {
+            // Unlink last block, shrink heap to start of last block's header
+            HeapBlock prevBlock = ReadBlock(prev);
+            prevBlock.next = -1;
+            WriteBlock(prev, prevBlock);
+            ShrinkHeap((unsigned int)cur2);
+        }
+
+        DEBUG(dbgAddr, "SysFree: trimmed tail block at " << cur2
+              << " heapTop now " << heapTop);
+
+        // Loop again — the new last block might also be free after coalescing
+    }
 }
 
 // ===========================================================================

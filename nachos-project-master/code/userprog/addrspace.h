@@ -4,48 +4,58 @@
 #include "copyright.h"
 #include "filesys.h"
 
-#define UserStackSize 1024  // increase this as necessary!
+#define UserStackSize 1024
 
-// ---------------------------------------------------------------------------
-// PageInfo — records where a virtual page's content lives in the noff file.
-//
-//   fileOffset == -1  →  zero-fill (uninitialised data or stack)
-//   validBytes        →  how many bytes to copy from the file into the frame;
-//                         the rest of the PageSize frame is zeroed.
-//   readOnly          →  TRUE for pages from the readonlyData (.rodata) segment
-// ---------------------------------------------------------------------------
 struct PageInfo {
-    int  fileOffset;  // byte offset inside the noff executable (-1 = zero-fill)
-    int  validBytes;  // bytes to read from the file  (0 .. PageSize)
-    bool readOnly;    // set for read-only data segment pages
+    int  fileOffset;
+    int  validBytes;
+    bool readOnly;
 };
+
+// Heap block header — stored in simulated user memory just before each allocation
+// Layout: [size:4][free:4][next:4] = 12 bytes
+struct HeapBlock {
+    int  size;   // usable bytes (excluding this header)
+    bool free;
+    int  next;   // virtual addr of next HeapBlock, -1 = none
+};
+
+#define BLOCK_HEADER_SIZE 12
 
 class AddrSpace {
    public:
-    AddrSpace();                // default constructor (kept for compatibility)
-    AddrSpace(char *fileName);  // build page table from noff file (demand paging)
-    ~AddrSpace();               // free physical frames that were allocated
+    AddrSpace();
+    AddrSpace(char *fileName);
+    ~AddrSpace();
 
-    void Execute();       // hand control to the user program
-    void SaveState();     // save / restore address-space state on context switch
+    void Execute();
+    void SaveState();
     void RestoreState();
 
-    // Translate vaddr → paddr.  Returns PageFaultException when the page is
-    // not yet resident; ExceptionHandler will call HandlePageFault and retry.
     ExceptionType Translate(unsigned int vaddr, unsigned int *paddr, int mode);
-
-    // Load the faulting virtual page into a free physical frame.
-    // Called by ExceptionHandler on PageFaultException.
     void HandlePageFault(unsigned int vaddr);
 
+    // Heap management — called from ksyscall.h
+    int  SysMalloc(int size);
+    void SysFree(int ptr);
+
    private:
-    TranslationEntry *pageTable;  // one entry per virtual page
-    unsigned int      numPages;   // total number of virtual pages
+    TranslationEntry *pageTable;
+    unsigned int      numPages;
 
-    OpenFile  *executable;  // kept open so pages can be loaded on demand
-    PageInfo  *pageInfo;    // one PageInfo per virtual page
+    OpenFile  *executable;
+    PageInfo  *pageInfo;
 
-    void InitRegisters();   // initialise user-level CPU registers
+    unsigned int heapStart;  // first virtual addr of heap (fixed after construction)
+    unsigned int heapTop;    // current top of heap (grows/shrinks)
+
+    // Internal helpers
+    int  SysBreak(int delta);          // grow heap by delta bytes, return old heapTop or -1
+    bool ShrinkHeap(unsigned int newTop); // shrink heap, free physical frames
+    HeapBlock ReadBlock(int vaddr);
+    void      WriteBlock(int vaddr, HeapBlock b);
+
+    void InitRegisters();
 };
 
 #endif  // ADDRSPACE_H

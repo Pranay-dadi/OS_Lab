@@ -77,6 +77,19 @@ void handle_SC_Sleep() {
     return move_program_counter();
 }
 
+void handle_SC_Malloc() {
+    int size = kernel->machine->ReadRegister(4);
+    kernel->machine->WriteRegister(2, SysMalloc(size));
+    return move_program_counter();
+}
+
+void handle_SC_Free() {
+    // ptr passed in r4 — currently a no-op
+    SysFree(kernel->machine->ReadRegister(4));
+    kernel->machine->WriteRegister(2, 0);
+    return move_program_counter();
+}
+
 void handle_SC_ReadNum() {
     kernel->machine->WriteRegister(2, SysReadNum());
     return move_program_counter();
@@ -342,7 +355,8 @@ void ExceptionHandler(ExceptionType which) {
                         kernel->machine->ReadRegister(NextPCReg) + 4);
                     return;
                 }
-
+                case SC_Malloc:           return handle_SC_Malloc();
+                case SC_Free:             return handle_SC_Free();
                 case SC_ReadNum:          return handle_SC_ReadNum();
                 case SC_PrintNum:         return handle_SC_PrintNum();
                 case SC_ReadChar:         return handle_SC_ReadChar();

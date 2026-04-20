@@ -51,6 +51,8 @@
 #define SC_Abs 55
 #define SC_Sleep 56
 #define SC_Pipe 57
+#define SC_Malloc 58
+#define SC_Free   59
 
 #ifndef IN_ASM
 
@@ -75,6 +77,9 @@ int Abs(int num);
 void Sleep(int ticks);
 
 int Pipe(int *readfd_ptr, int *writefd_ptr);
+
+void* Malloc(int size);
+void  Free(void* ptr);
 
 int Add(int op1, int op2);
 

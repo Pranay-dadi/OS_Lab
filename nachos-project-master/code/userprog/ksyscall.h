@@ -48,6 +48,17 @@ int SysAbs(int num) {
     }
 }
 
+int SysMalloc(int size) {
+    if (kernel->currentThread->space == NULL) return 0;
+    return kernel->currentThread->space->SysMalloc(size);
+}
+
+int SysFree(int ptr) {
+    if (kernel->currentThread->space == NULL) return 0;
+    kernel->currentThread->space->SysFree(ptr);
+    return 0;
+}
+
 int SysReadNum() {
     readUntilBlank();
 

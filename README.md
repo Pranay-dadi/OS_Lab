@@ -1,12 +1,12 @@
 #Instructions 
-test drectory -make clean
-              -make
+test drectory - make clean
+              - make
 build.linux - make clean
             - make
             - ./nachos -x ../test/abs
             - ./nachos -x ../test/sleep
             - ./nachos -P
-For syscalls  - Add c code in test
+For syscall   - Add c code in test
               - Then Makefile in test (2 parts) 
               - Then start.S in test
               - Then kyscall.h in userprog
