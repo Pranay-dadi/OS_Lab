@@ -1,0 +1,551 @@
+diff --git a/nachos-project-master/code/test/Makefile b/nachos-project-master/code/test/Makefile
+index 32e044a..b5845af 100644
+--- a/nachos-project-master/code/test/Makefile
++++ b/nachos-project-master/code/test/Makefile
+@@ -112,7 +112,7 @@ ifeq ($(hosttype),unknown)
+ PROGRAMS = unknownhost
+ else
+ # change this if you create a new test program!
+-PROGRAMS = add abs pipetest sleep demandpage_test halt shell matmult sort segments test_syscall num_io char_io random str_io ascii bubblesort help create_file open_file readwrite exec test_sem sinhvien voinuoc main
++PROGRAMS = add abs pipetest sleep demandpage_test malloc_test halt shell matmult sort segments test_syscall num_io char_io random str_io ascii bubblesort help create_file open_file readwrite exec test_sem sinhvien voinuoc main
+ endif
+ 
+ all: $(PROGRAMS)
+@@ -154,6 +154,13 @@ sleep: sleep.o start.o
+ 	$(LD) $(LDFLAGS) start.o sleep.o -o sleep.coff
+ 	$(COFF2NOFF) sleep.coff sleep
+ 
++malloc_test.o: malloc_test.c
++	$(CC) $(CFLAGS) -c malloc_test.c
++
++malloc_test: malloc_test.o start.o
++	$(LD) $(LDFLAGS) start.o malloc_test.o -o malloc_test.coff
++	$(COFF2NOFF) malloc_test.coff malloc_test
++
+ add.o: add.c
+ 	$(CC) $(CFLAGS) -c add.c
+ 
+diff --git a/nachos-project-master/code/test/malloc_test.c b/nachos-project-master/code/test/malloc_test.c
+new file mode 100644
+index 0000000..1e7b84f
+--- /dev/null
++++ b/nachos-project-master/code/test/malloc_test.c
+@@ -0,0 +1,63 @@
++#include "syscall.h"
++
++/* Helper: print label + number + newline */
++void printLabelNum(char *label, int n) {
++    PrintString(label);
++    PrintNum(n);
++    PrintChar('\n');
++}
++
++int main() {
++    /* ✅ ALL declarations first */
++    int *a, *b, *c, *d, *p, *q;
++
++    PrintString("=== Test 1: Basic alloc + read/write ===\n");
++    a = (int *)Malloc(4 * sizeof(int));
++    a[0] = 10; a[1] = 20; a[2] = 30; a[3] = 40;
++    printLabelNum("a[0]=", a[0]);
++    printLabelNum("a[3]=", a[3]);
++
++    PrintString("=== Test 2: Second alloc while first is live ===\n");
++    b = (int *)Malloc(2 * sizeof(int));
++    b[0] = 100; b[1] = 200;
++    printLabelNum("b[0]=", b[0]);
++    printLabelNum("b[1]=", b[1]);
++    printLabelNum("a[0] still=", a[0]);
++
++    PrintString("=== Test 3: Free tail block (heap shrinks) ===\n");
++    Free(b);
++    printLabelNum("a[0] after Free(b)=", a[0]);
++    printLabelNum("a[3] after Free(b)=", a[3]);
++
++    PrintString("=== Test 4: Reuse freed block ===\n");
++    c = (int *)Malloc(2 * sizeof(int));
++    c[0] = 55; c[1] = 66;
++    printLabelNum("c[0]=", c[0]);
++    printLabelNum("c[1]=", c[1]);
++
++    PrintString("=== Test 5: Free all, then alloc fresh ===\n");
++    Free(a);
++    Free(c);
++    d = (int *)Malloc(3 * sizeof(int));
++    d[0] = 7; d[1] = 8; d[2] = 9;
++    printLabelNum("d[0]=", d[0]);
++    printLabelNum("d[2]=", d[2]);
++
++    PrintString("=== Test 6: Free(NULL) must not crash ===\n");
++    Free(0);
++    PrintString("Free(NULL) OK\n");
++
++    PrintString("=== Test 7: Overwrite check ===\n");
++    p = (int *)Malloc(2 * sizeof(int));
++    q = (int *)Malloc(2 * sizeof(int));
++    p[0] = 111; p[1] = 222;
++    q[0] = 333; q[1] = 444;
++    printLabelNum("p[0]=", p[0]);
++    printLabelNum("p[1]=", p[1]);
++    printLabelNum("q[0]=", q[0]);
++
++    Free(p); Free(q); Free(d);
++
++    PrintString("=== ALL TESTS PASSED ===\n");
++    return 0;
++}
+\ No newline at end of file
+diff --git a/nachos-project-master/code/userprog/addrspace.cc b/nachos-project-master/code/userprog/addrspace.cc
+index ffc5d7c..32dcdbc 100644
+--- a/nachos-project-master/code/userprog/addrspace.cc
++++ b/nachos-project-master/code/userprog/addrspace.cc
+@@ -118,13 +118,41 @@ AddrSpace::AddrSpace(char *fileName)
+           + noffH.initData.size
+           + noffH.uninitData.size
+           + UserStackSize;
+-#ifdef RDATA
++    #ifdef RDATA
+     size += noffH.readonlyData.size;
+-#endif
++    #endif
+ 
+     numPages = divRoundUp(size, PageSize);
+     size     = numPages * PageSize;
+ 
++    // Find the highest virtual address used by any segment, then
++    // round UP to the next page boundary — that is where heap starts.
++    unsigned int segTop = 0;
++
++    if (noffH.code.size > 0) {
++        unsigned int end = noffH.code.virtualAddr + noffH.code.size;
++        if (end > segTop) segTop = end;
++    }
++    if (noffH.initData.size > 0) {
++        unsigned int end = noffH.initData.virtualAddr + noffH.initData.size;
++        if (end > segTop) segTop = end;
++    }
++    if (noffH.uninitData.size > 0 && noffH.uninitData.virtualAddr < 0x10000000u) {
++        // Guard against the garbage uninitData value seen in your binary
++        unsigned int end = noffH.uninitData.virtualAddr + noffH.uninitData.size;
++        if (end > segTop) segTop = end;
++    }
++    #ifdef RDATA
++    if (noffH.readonlyData.size > 0) {
++        unsigned int end = noffH.readonlyData.virtualAddr + noffH.readonlyData.size;
++        if (end > segTop) segTop = end;
++    }
++    #endif
++
++    // Round up to next page boundary
++    heapStart = divRoundUp(segTop, PageSize) * PageSize;
++    heapTop   = heapStart;
++
+     DEBUG(dbgAddr, "AddrSpace: " << numPages << " pages (" << size
+           << " bytes) for " << fileName);
+ 
+@@ -320,6 +348,234 @@ void AddrSpace::HandlePageFault(unsigned int vaddr) {
+     kernel->addrLock->V();
+ }
+ 
++// ===========================================================================
++// ReadBlock / WriteBlock — access HeapBlock headers in simulated user memory
++// ===========================================================================
++HeapBlock AddrSpace::ReadBlock(int vaddr) {
++    HeapBlock b;
++    int word;
++    if (!kernel->machine->ReadMem(vaddr,     4, &word)) kernel->machine->ReadMem(vaddr,     4, &word);
++    b.size = word;
++    if (!kernel->machine->ReadMem(vaddr + 4, 4, &word)) kernel->machine->ReadMem(vaddr + 4, 4, &word);
++    b.free = (bool)word;
++    if (!kernel->machine->ReadMem(vaddr + 8, 4, &word)) kernel->machine->ReadMem(vaddr + 8, 4, &word);
++    b.next = word;
++    return b;
++}
++
++void AddrSpace::WriteBlock(int vaddr, HeapBlock b) {
++    if (!kernel->machine->WriteMem(vaddr,     4, b.size))  kernel->machine->WriteMem(vaddr,     4, b.size);
++    if (!kernel->machine->WriteMem(vaddr + 4, 4, (int)b.free)) kernel->machine->WriteMem(vaddr + 4, 4, (int)b.free);
++    if (!kernel->machine->WriteMem(vaddr + 8, 4, b.next))  kernel->machine->WriteMem(vaddr + 8, 4, b.next);
++}
++
++// ===========================================================================
++// SysBreak — grow heap by delta bytes.
++// Returns old heapTop (the address where new block header goes), -1 on fail.
++// ===========================================================================
++int AddrSpace::SysBreak(int delta) {
++    unsigned int oldTop = heapTop;
++    unsigned int newTop = heapTop + (unsigned int)delta;
++
++    // Guard: must not grow into stack area
++    if (newTop >= numPages * PageSize - UserStackSize)
++        return -1;
++
++    // Allocate physical frames for any newly spanned pages
++    unsigned int firstNewPage = divRoundUp(oldTop,  PageSize);
++    unsigned int lastNewPage  = divRoundUp(newTop,  PageSize);
++
++    kernel->addrLock->P();
++    for (unsigned int p = firstNewPage; p < lastNewPage; p++) {
++        if (p >= numPages) { kernel->addrLock->V(); return -1; }
++        if (!pageTable[p].valid) {
++            int ppn = kernel->gPhysPageBitMap->FindAndSet();
++            if (ppn == -1) { kernel->addrLock->V(); return -1; }
++            bzero(&kernel->machine->mainMemory[ppn * PageSize], PageSize);
++            pageTable[p].physicalPage = (unsigned int)ppn;
++            pageTable[p].valid        = TRUE;
++            pageTable[p].readOnly     = FALSE;
++            pageTable[p].use          = FALSE;
++            pageTable[p].dirty        = FALSE;
++        }
++    }
++    kernel->addrLock->V();
++
++    heapTop = newTop;
++    return (int)oldTop;
++}
++
++// ===========================================================================
++// ShrinkHeap — shrink heapTop down to newTop.
++// Releases physical frames that are no longer needed.
++// Returns true on success, false if newTop is invalid.
++// ===========================================================================
++bool AddrSpace::ShrinkHeap(unsigned int newTop) {
++    if (newTop < heapStart || newTop > heapTop)
++        return false;
++
++    // Release physical frames that are now entirely above newTop
++    unsigned int firstFreePage = divRoundUp(newTop,    PageSize);
++    unsigned int lastUsedPage  = divRoundUp(heapTop,   PageSize);
++
++    kernel->addrLock->P();
++    for (unsigned int p = firstFreePage; p < lastUsedPage; p++) {
++        if (p < numPages && pageTable[p].valid) {
++            kernel->gPhysPageBitMap->Clear(pageTable[p].physicalPage);
++            pageTable[p].valid        = FALSE;
++            pageTable[p].physicalPage = (unsigned int)-1;
++            DEBUG(dbgAddr, "ShrinkHeap: freed phys frame for vpage " << p);
++        }
++    }
++    kernel->addrLock->V();
++
++    heapTop = newTop;
++    DEBUG(dbgAddr, "ShrinkHeap: heapTop now " << heapTop);
++    return true;
++}
++
++// ===========================================================================
++// SysMalloc — first-fit allocator
++//
++// Memory layout of each allocation:
++//   [ HeapBlock header : 12 bytes | user data : size bytes ]
++//
++// Returns virtual address of user data (just past the header), 0 on failure.
++// ===========================================================================
++int AddrSpace::SysMalloc(int size) {
++    if (size <= 0) return 0;
++
++    // --- Pass 1: first-fit search through existing free blocks ---
++    if (heapTop > heapStart) {
++        int cur = (int)heapStart;
++        while (cur != -1) {
++            HeapBlock b = ReadBlock(cur);
++            if (b.free && b.size >= size) {
++                b.free = false;
++                WriteBlock(cur, b);
++                DEBUG(dbgAddr, "SysMalloc: reused block at " << cur
++                      << " size=" << b.size);
++                return cur + BLOCK_HEADER_SIZE;
++            }
++            cur = b.next;
++        }
++    }
++
++    // --- Pass 2: extend the heap ---
++    int headerAddr = SysBreak(BLOCK_HEADER_SIZE + size);
++    if (headerAddr == -1) {
++        DEBUG(dbgAddr, "SysMalloc: out of memory for size=" << size);
++        return 0;
++    }
++
++    // Link this new block onto the end of the list
++    if ((unsigned int)headerAddr > heapStart) {
++        int cur = (int)heapStart;
++        while (true) {
++            HeapBlock tmp = ReadBlock(cur);
++            if (tmp.next == -1) {
++                tmp.next = headerAddr;
++                WriteBlock(cur, tmp);
++                break;
++            }
++            cur = tmp.next;
++        }
++    }
++
++    HeapBlock b;
++    b.size = size;
++    b.free = false;
++    b.next = -1;
++    WriteBlock(headerAddr, b);
++
++    DEBUG(dbgAddr, "SysMalloc: new block at " << headerAddr
++          << " size=" << size << " heapTop=" << heapTop);
++    return headerAddr + BLOCK_HEADER_SIZE;
++}
++
++// ===========================================================================
++// SysFree — mark block free, coalesce neighbours, shrink heap if possible.
++//
++// Steps:
++//   1. Validate the pointer.
++//   2. Mark block free.
++//   3. Forward-coalesce: merge any adjacent free blocks.
++//   4. Tail-trim: if the last block in the list is free, remove it from the
++//      list entirely and call ShrinkHeap() to give physical frames back.
++// ===========================================================================
++void AddrSpace::SysFree(int ptr) {
++    if (ptr == 0) return;
++
++    int headerAddr = ptr - BLOCK_HEADER_SIZE;
++
++    // Sanity bounds check
++    if ((unsigned int)headerAddr < heapStart ||
++        (unsigned int)headerAddr >= heapTop) {
++        DEBUG(dbgAddr, "SysFree: invalid pointer " << ptr);
++        return;
++    }
++
++    // Step 1: mark free
++    HeapBlock b = ReadBlock(headerAddr);
++    b.free = true;
++    WriteBlock(headerAddr, b);
++    DEBUG(dbgAddr, "SysFree: freed block at " << headerAddr
++          << " size=" << b.size);
++
++    // Step 2: forward coalesce — one full pass
++    int cur = (int)heapStart;
++    while (cur != -1) {
++        HeapBlock curr = ReadBlock(cur);
++        if (curr.free && curr.next != -1) {
++            HeapBlock nxt = ReadBlock(curr.next);
++            if (nxt.free) {
++                // Absorb next into current
++                curr.size += BLOCK_HEADER_SIZE + nxt.size;
++                curr.next  = nxt.next;
++                WriteBlock(cur, curr);
++                // Don't advance cur — re-check same block
++                continue;
++            }
++        }
++        cur = curr.next;
++    }
++
++    // Step 3: tail-trim — while the last block is free, remove and shrink
++    while (true) {
++        if (heapTop == heapStart) break;  // heap is empty
++
++        // Find the second-to-last and last blocks
++        int prev = -1;
++        int cur2 = (int)heapStart;
++        while (true) {
++            HeapBlock tmp = ReadBlock(cur2);
++            if (tmp.next == -1) break;   // cur2 is last
++            prev = cur2;
++            cur2 = tmp.next;
++        }
++
++        HeapBlock last = ReadBlock(cur2);
++        if (!last.free) break;  // last block is still in use — stop
++
++        // Remove last block from the list
++        if (prev == -1) {
++            // The only block in the list — heap goes completely empty
++            ShrinkHeap(heapStart);
++        } else {
++            // Unlink last block, shrink heap to start of last block's header
++            HeapBlock prevBlock = ReadBlock(prev);
++            prevBlock.next = -1;
++            WriteBlock(prev, prevBlock);
++            ShrinkHeap((unsigned int)cur2);
++        }
++
++        DEBUG(dbgAddr, "SysFree: trimmed tail block at " << cur2
++              << " heapTop now " << heapTop);
++
++        // Loop again — the new last block might also be free after coalescing
++    }
++}
++
+ // ===========================================================================
+ // Execute / InitRegisters / SaveState / RestoreState / Translate
+ // (unchanged in structure; Translate returns PageFaultException for invalid
+diff --git a/nachos-project-master/code/userprog/addrspace.h b/nachos-project-master/code/userprog/addrspace.h
+index ae52a2e..bc85d60 100644
+--- a/nachos-project-master/code/userprog/addrspace.h
++++ b/nachos-project-master/code/userprog/addrspace.h
+@@ -4,48 +4,58 @@
+ #include "copyright.h"
+ #include "filesys.h"
+ 
+-#define UserStackSize 1024  // increase this as necessary!
+-
+-// ---------------------------------------------------------------------------
+-// PageInfo — records where a virtual page's content lives in the noff file.
+-//
+-//   fileOffset == -1  →  zero-fill (uninitialised data or stack)
+-//   validBytes        →  how many bytes to copy from the file into the frame;
+-//                         the rest of the PageSize frame is zeroed.
+-//   readOnly          →  TRUE for pages from the readonlyData (.rodata) segment
+-// ---------------------------------------------------------------------------
++#define UserStackSize 1024
++
+ struct PageInfo {
+-    int  fileOffset;  // byte offset inside the noff executable (-1 = zero-fill)
+-    int  validBytes;  // bytes to read from the file  (0 .. PageSize)
+-    bool readOnly;    // set for read-only data segment pages
++    int  fileOffset;
++    int  validBytes;
++    bool readOnly;
++};
++
++// Heap block header — stored in simulated user memory just before each allocation
++// Layout: [size:4][free:4][next:4] = 12 bytes
++struct HeapBlock {
++    int  size;   // usable bytes (excluding this header)
++    bool free;
++    int  next;   // virtual addr of next HeapBlock, -1 = none
+ };
+ 
++#define BLOCK_HEADER_SIZE 12
++
+ class AddrSpace {
+    public:
+-    AddrSpace();                // default constructor (kept for compatibility)
+-    AddrSpace(char *fileName);  // build page table from noff file (demand paging)
+-    ~AddrSpace();               // free physical frames that were allocated
++    AddrSpace();
++    AddrSpace(char *fileName);
++    ~AddrSpace();
+ 
+-    void Execute();       // hand control to the user program
+-    void SaveState();     // save / restore address-space state on context switch
++    void Execute();
++    void SaveState();
+     void RestoreState();
+ 
+-    // Translate vaddr → paddr.  Returns PageFaultException when the page is
+-    // not yet resident; ExceptionHandler will call HandlePageFault and retry.
+     ExceptionType Translate(unsigned int vaddr, unsigned int *paddr, int mode);
+-
+-    // Load the faulting virtual page into a free physical frame.
+-    // Called by ExceptionHandler on PageFaultException.
+     void HandlePageFault(unsigned int vaddr);
+ 
++    // Heap management — called from ksyscall.h
++    int  SysMalloc(int size);
++    void SysFree(int ptr);
++
+    private:
+-    TranslationEntry *pageTable;  // one entry per virtual page
+-    unsigned int      numPages;   // total number of virtual pages
++    TranslationEntry *pageTable;
++    unsigned int      numPages;
++
++    OpenFile  *executable;
++    PageInfo  *pageInfo;
++
++    unsigned int heapStart;  // first virtual addr of heap (fixed after construction)
++    unsigned int heapTop;    // current top of heap (grows/shrinks)
+ 
+-    OpenFile  *executable;  // kept open so pages can be loaded on demand
+-    PageInfo  *pageInfo;    // one PageInfo per virtual page
++    // Internal helpers
++    int  SysBreak(int delta);          // grow heap by delta bytes, return old heapTop or -1
++    bool ShrinkHeap(unsigned int newTop); // shrink heap, free physical frames
++    HeapBlock ReadBlock(int vaddr);
++    void      WriteBlock(int vaddr, HeapBlock b);
+ 
+-    void InitRegisters();   // initialise user-level CPU registers
++    void InitRegisters();
+ };
+ 
+ #endif  // ADDRSPACE_H
+\ No newline at end of file
+diff --git a/nachos-project-master/code/userprog/exception.cc b/nachos-project-master/code/userprog/exception.cc
+index 3f93836..e2cf7ae 100644
+--- a/nachos-project-master/code/userprog/exception.cc
++++ b/nachos-project-master/code/userprog/exception.cc
+@@ -77,6 +77,19 @@ void handle_SC_Sleep() {
+     return move_program_counter();
+ }
+ 
++void handle_SC_Malloc() {
++    int size = kernel->machine->ReadRegister(4);
++    kernel->machine->WriteRegister(2, SysMalloc(size));
++    return move_program_counter();
++}
++
++void handle_SC_Free() {
++    // ptr passed in r4 — currently a no-op
++    SysFree(kernel->machine->ReadRegister(4));
++    kernel->machine->WriteRegister(2, 0);
++    return move_program_counter();
++}
++
+ void handle_SC_ReadNum() {
+     kernel->machine->WriteRegister(2, SysReadNum());
+     return move_program_counter();
+@@ -342,7 +355,8 @@ void ExceptionHandler(ExceptionType which) {
+                         kernel->machine->ReadRegister(NextPCReg) + 4);
+                     return;
+                 }
+-
++                case SC_Malloc:           return handle_SC_Malloc();
++                case SC_Free:             return handle_SC_Free();
+                 case SC_ReadNum:          return handle_SC_ReadNum();
+                 case SC_PrintNum:         return handle_SC_PrintNum();
+                 case SC_ReadChar:         return handle_SC_ReadChar();
+diff --git a/nachos-project-master/code/userprog/ksyscall.h b/nachos-project-master/code/userprog/ksyscall.h
+index 94a0294..e56c349 100644
+--- a/nachos-project-master/code/userprog/ksyscall.h
++++ b/nachos-project-master/code/userprog/ksyscall.h
+@@ -48,6 +48,17 @@ int SysAbs(int num) {
+     }
+ }
+ 
++int SysMalloc(int size) {
++    if (kernel->currentThread->space == NULL) return 0;
++    return kernel->currentThread->space->SysMalloc(size);
++}
++
++int SysFree(int ptr) {
++    if (kernel->currentThread->space == NULL) return 0;
++    kernel->currentThread->space->SysFree(ptr);
++    return 0;
++}
++
+ int SysReadNum() {
+     readUntilBlank();
+ 
+diff --git a/nachos-project-master/code/userprog/syscall.h b/nachos-project-master/code/userprog/syscall.h
+index 2714e8f..dede3f2 100644
+--- a/nachos-project-master/code/userprog/syscall.h
++++ b/nachos-project-master/code/userprog/syscall.h
+@@ -51,6 +51,8 @@
+ #define SC_Abs 55
+ #define SC_Sleep 56
+ #define SC_Pipe 57
++#define SC_Malloc 58
++#define SC_Free   59
+ 
+ #ifndef IN_ASM
+ 
+@@ -76,6 +78,9 @@ void Sleep(int ticks);
+ 
+ int Pipe(int *readfd_ptr, int *writefd_ptr);
+ 
++void* Malloc(int size);
++void  Free(void* ptr);
++
+ int Add(int op1, int op2);
+ 
+ int ReadNum();
