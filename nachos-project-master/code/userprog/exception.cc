@@ -2,12 +2,79 @@
 #include "main.h"
 #include "syscall.h"
 #include "ksyscall.h"
-// openfile_pipe.h intentionally NOT included — pipe dispatch is handled
-// entirely through gPipeTable inside SysRead / SysWrite / SysClose.
+
+// ===========================================================================
+// TLB statistics counters
+//
+// These are global to this translation unit.  PrintTLBStats() prints them
+// just before the machine halts.
+// ===========================================================================
+#ifdef USE_TLB
+static int gTLBMissCount        = 0;  // total TLB misses handled
+static int gTLBInvalidFillCount = 0;  // misses filled into an invalid slot
+static int gTLBReplaceCount     = 0;  // misses that evicted a valid slot
+static int gTLBDirtyBackCount   = 0;  // times a dirty bit was saved on evict
+
+// Round-robin replacement cursor
+static int nextTLBSlot = 0;
 
 // ---------------------------------------------------------------------------
-// Utility: copy a C-string from user space into a kernel-allocated buffer.
+// SelectTLBVictim — choose a TLB slot to overwrite.
+//   Prefer an invalid (empty) slot; fall back to round-robin.
 // ---------------------------------------------------------------------------
+static int SelectTLBVictim() {
+    for (int i = 0; i < TLBSize; i++) {
+        if (!kernel->machine->tlb[i].valid) {
+            gTLBInvalidFillCount++;
+            return i;
+        }
+    }
+    // All slots are valid — round-robin eviction.
+    gTLBReplaceCount++;
+    int victim = nextTLBSlot;
+    nextTLBSlot = (nextTLBSlot + 1) % TLBSize;
+    return victim;
+}
+
+// ---------------------------------------------------------------------------
+// SaveBackTLBEntry — before overwriting a TLB slot, copy its use/dirty bits
+//                    back into the owning page-table entry.
+// ---------------------------------------------------------------------------
+static void SaveBackTLBEntry(AddrSpace *space, TranslationEntry &te) {
+    if (!te.valid || space == NULL)
+        return;
+    TranslationEntry *pte = space->FindPTE(te.virtualPage);
+    if (pte != NULL) {
+        if (te.dirty && !pte->dirty)
+            gTLBDirtyBackCount++;
+        pte->use   = pte->use   || te.use;
+        pte->dirty = pte->dirty || te.dirty;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PrintTLBStats — called just before the machine halts.
+// The guard ensures it prints exactly once even if multiple exit paths fire.
+// ---------------------------------------------------------------------------
+static bool gStatsPrinted = false;
+static void PrintTLBStats() {
+    if (gStatsPrinted) return;
+    gStatsPrinted = true;
+    cout << "\n===== TLB Statistics =====\n";
+    cout << "  Total TLB misses         : " << gTLBMissCount        << "\n";
+    cout << "  Filled into invalid slot : " << gTLBInvalidFillCount  << "\n";
+    cout << "  Evicted valid slot       : " << gTLBReplaceCount      << "\n";
+    cout << "  Dirty bits saved on evict: " << gTLBDirtyBackCount    << "\n";
+    cout << "==========================\n";
+}
+#else
+// Stubs so the rest of the file compiles without USE_TLB.
+static void PrintTLBStats() {}
+#endif  // USE_TLB
+
+// ===========================================================================
+// Utility: copy a C-string from user space into a kernel-allocated buffer.
+// ===========================================================================
 char* stringUser2System(int addr, int convert_length = -1) {
     int  length = 0;
     bool stop   = false;
@@ -55,6 +122,7 @@ void handle_not_implemented_SC(int type) {
 
 void handle_SC_Halt() {
     DEBUG(dbgSys, "Shutdown, initiated by user program.\n");
+    PrintTLBStats();
     SysHalt();
     ASSERTNOTREACHED();
 }
@@ -84,7 +152,6 @@ void handle_SC_Malloc() {
 }
 
 void handle_SC_Free() {
-    // ptr passed in r4 — currently a no-op
     SysFree(kernel->machine->ReadRegister(4));
     kernel->machine->WriteRegister(2, 0);
     return move_program_counter();
@@ -204,6 +271,10 @@ void handle_SC_Join() {
 }
 
 void handle_SC_Exit() {
+    // Print stats when the last (or only) process exits via exit().
+    // The gStatsPrinted guard in PrintTLBStats prevents double-printing
+    // when both SC_Exit and SC_Halt are reached (e.g. multi-process runs).
+    PrintTLBStats();
     kernel->machine->WriteRegister(2,
         SysExit(kernel->machine->ReadRegister(4)));
     return move_program_counter();
@@ -254,11 +325,19 @@ void handle_SC_GetPid() {
 // ===========================================================================
 // ExceptionHandler
 //
-// DEMAND PAGING:
-//   PageFaultException is caught here. We call HandlePageFault() which
-//   allocates a physical frame and loads the missing page from the
-//   executable. We then RETURN WITHOUT advancing the PC, so Machine::Run()
-//   retries the faulting instruction — this time finding a valid PTE.
+// PageFaultException handling covers two cases:
+//
+//   CASE A — PTE is INVALID (page not yet in memory):
+//     Call HandlePageFault() to allocate a frame and load the page.
+//     Then (in USE_TLB mode) install the now-valid PTE into the TLB.
+//     Return WITHOUT advancing the PC — the faulting instruction retries.
+//
+//   CASE B — PTE is VALID but translation not in TLB (pure TLB miss):
+//     (Only possible in USE_TLB mode.)
+//     Install the PTE directly into the TLB.
+//     Return WITHOUT advancing the PC.
+//
+// Both cases end with the TLB populated and the PC unchanged.
 // ===========================================================================
 void ExceptionHandler(ExceptionType which) {
     int type = kernel->machine->ReadRegister(2);
@@ -270,28 +349,62 @@ void ExceptionHandler(ExceptionType which) {
         case NoException:
             kernel->interrupt->setStatus(SystemMode);
             DEBUG(dbgSys, "Switch to system mode\n");
-            return;   // return — do NOT fall through to ASSERTNOTREACHED()
+            return;
 
         // -------------------------------------------------------------------
-        // DEMAND PAGING — handle transparently, retry the instruction
+        // PageFaultException — unified handler for TLB miss + demand paging
         // -------------------------------------------------------------------
         case PageFaultException: {
             unsigned int badVAddr =
                 (unsigned int)kernel->machine->ReadRegister(BadVAddrReg);
-            DEBUG(dbgAddr, "PageFaultException vaddr=" << badVAddr);
+            DEBUG(dbgAddr, "PageFaultException vaddr=0x" << hex << badVAddr << dec);
 
-            if (kernel->currentThread->space == NULL) {
+            AddrSpace *space = kernel->currentThread->space;
+            if (space == NULL) {
                 cerr << "PageFaultException with no address space!\n";
+                PrintTLBStats();
                 SysHalt();
                 ASSERTNOTREACHED();
             }
 
-            // Load the missing page; page table entry becomes valid.
-            kernel->currentThread->space->HandlePageFault(badVAddr);
+            int vpn = (int)((unsigned int)badVAddr / PageSize);
+
+            // --- Step 1: bounds check ---
+            TranslationEntry *pte = space->FindPTE(vpn);
+            if (pte == NULL) {
+                cerr << "Illegal virtual address 0x" << hex << badVAddr << dec
+                     << " (vpn=" << vpn << " out of range)\n";
+                PrintTLBStats();
+                SysHalt();
+                ASSERTNOTREACHED();
+            }
+
+            // --- Step 2: if page not in memory, demand-load it ---
+            if (!pte->valid) {
+                DEBUG(dbgAddr, "  demand-loading vpn=" << vpn);
+                space->HandlePageFault(badVAddr);
+                // pte->valid is now TRUE (HandlePageFault set it).
+                // pte pointer still valid — it points into space's pageTable.
+            }
+
+            // --- Step 3 (USE_TLB only): fill TLB slot ---
+#ifdef USE_TLB
+            gTLBMissCount++;
+
+            int victim = SelectTLBVictim();
+            // Save use/dirty bits of the evicted entry before overwriting.
+            SaveBackTLBEntry(space, kernel->machine->tlb[victim]);
+
+            // Install translation.
+            kernel->machine->tlb[victim]       = *pte;
+            kernel->machine->tlb[victim].valid = TRUE;
+
+            DEBUG(dbgAddr, "  TLB[" << victim << "] <- vpn=" << pte->virtualPage
+                  << " ppn=" << pte->physicalPage);
+#endif
 
             // Do NOT call move_program_counter().
-            // The PC still points at the faulting instruction.
-            // Machine::Run() will retry it now that the page is present.
+            // The faulting instruction is retried automatically.
             return;
         }
 
@@ -301,39 +414,51 @@ void ExceptionHandler(ExceptionType which) {
         case ReadOnlyException:
             cerr << "ReadOnlyException vaddr="
                  << kernel->machine->ReadRegister(BadVAddrReg) << "\n";
-            SysHalt(); ASSERTNOTREACHED();
+            PrintTLBStats();
+            SysHalt();
+            ASSERTNOTREACHED();
 
         case BusErrorException:
             cerr << "BusErrorException vaddr="
                  << kernel->machine->ReadRegister(BadVAddrReg) << "\n";
-            SysHalt(); ASSERTNOTREACHED();
+            PrintTLBStats();
+            SysHalt();
+            ASSERTNOTREACHED();
 
         case AddressErrorException:
             cerr << "AddressErrorException vaddr="
                  << kernel->machine->ReadRegister(BadVAddrReg) << "\n";
-            SysHalt(); ASSERTNOTREACHED();
+            PrintTLBStats();
+            SysHalt();
+            ASSERTNOTREACHED();
 
         case OverflowException:
             cerr << "OverflowException\n";
-            SysHalt(); ASSERTNOTREACHED();
+            PrintTLBStats();
+            SysHalt();
+            ASSERTNOTREACHED();
 
         case IllegalInstrException:
             cerr << "IllegalInstrException\n";
-            SysHalt(); ASSERTNOTREACHED();
+            PrintTLBStats();
+            SysHalt();
+            ASSERTNOTREACHED();
 
         case NumExceptionTypes:
             cerr << "NumExceptionTypes exception\n";
-            SysHalt(); ASSERTNOTREACHED();
+            PrintTLBStats();
+            SysHalt();
+            ASSERTNOTREACHED();
 
         // -------------------------------------------------------------------
         // System calls
         // -------------------------------------------------------------------
         case SyscallException:
             switch (type) {
-                case SC_Halt:             return handle_SC_Halt();
-                case SC_Add:              return handle_SC_Add();
+                case SC_Halt:            return handle_SC_Halt();
+                case SC_Add:             return handle_SC_Add();
                 case SC_Abs:             return handle_SC_Abs();
-                case SC_Sleep:            return handle_SC_Sleep();
+                case SC_Sleep:           return handle_SC_Sleep();
 
                 case SC_Pipe: {
                     int readFDptr  = kernel->machine->ReadRegister(4);
@@ -355,28 +480,29 @@ void ExceptionHandler(ExceptionType which) {
                         kernel->machine->ReadRegister(NextPCReg) + 4);
                     return;
                 }
-                case SC_Malloc:           return handle_SC_Malloc();
-                case SC_Free:             return handle_SC_Free();
-                case SC_ReadNum:          return handle_SC_ReadNum();
-                case SC_PrintNum:         return handle_SC_PrintNum();
-                case SC_ReadChar:         return handle_SC_ReadChar();
-                case SC_PrintChar:        return handle_SC_PrintChar();
-                case SC_RandomNum:        return handle_SC_RandomNum();
-                case SC_ReadString:       return handle_SC_ReadString();
-                case SC_PrintString:      return handle_SC_PrintString();
-                case SC_CreateFile:       return handle_SC_CreateFile();
-                case SC_Open:             return handle_SC_Open();
-                case SC_Close:            return handle_SC_Close();
-                case SC_Read:             return handle_SC_Read();
-                case SC_Write:            return handle_SC_Write();
-                case SC_Seek:             return handle_SC_Seek();
-                case SC_Exec:             return handle_SC_Exec();
-                case SC_Join:             return handle_SC_Join();
-                case SC_Exit:             return handle_SC_Exit();
-                case SC_CreateSemaphore:  return handle_SC_CreateSemaphore();
-                case SC_Wait:             return handle_SC_Wait();
-                case SC_Signal:           return handle_SC_Signal();
-                case SC_GetPid:           return handle_SC_GetPid();
+
+                case SC_Malloc:          return handle_SC_Malloc();
+                case SC_Free:            return handle_SC_Free();
+                case SC_ReadNum:         return handle_SC_ReadNum();
+                case SC_PrintNum:        return handle_SC_PrintNum();
+                case SC_ReadChar:        return handle_SC_ReadChar();
+                case SC_PrintChar:       return handle_SC_PrintChar();
+                case SC_RandomNum:       return handle_SC_RandomNum();
+                case SC_ReadString:      return handle_SC_ReadString();
+                case SC_PrintString:     return handle_SC_PrintString();
+                case SC_CreateFile:      return handle_SC_CreateFile();
+                case SC_Open:            return handle_SC_Open();
+                case SC_Close:           return handle_SC_Close();
+                case SC_Read:            return handle_SC_Read();
+                case SC_Write:           return handle_SC_Write();
+                case SC_Seek:            return handle_SC_Seek();
+                case SC_Exec:            return handle_SC_Exec();
+                case SC_Join:            return handle_SC_Join();
+                case SC_Exit:            return handle_SC_Exit();
+                case SC_CreateSemaphore: return handle_SC_CreateSemaphore();
+                case SC_Wait:            return handle_SC_Wait();
+                case SC_Signal:          return handle_SC_Signal();
+                case SC_GetPid:          return handle_SC_GetPid();
 
                 case SC_Create:
                 case SC_Remove:
@@ -389,6 +515,7 @@ void ExceptionHandler(ExceptionType which) {
 
                 default:
                     cerr << "Unexpected syscall " << type << "\n";
+                    PrintTLBStats();
                     SysHalt();
                     ASSERTNOTREACHED();
             }
@@ -396,6 +523,7 @@ void ExceptionHandler(ExceptionType which) {
 
         default:
             cerr << "Unexpected exception " << (int)which << "\n";
+            PrintTLBStats();
             SysHalt();
             ASSERTNOTREACHED();
     }

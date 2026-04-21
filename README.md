@@ -6,6 +6,9 @@ build.linux - make clean\
             - ./nachos -x ../test/abs\
             - ./nachos -x ../test/sleep\
             - ./nachos -P\
+            - ./nachos -x ../test/pipetest\
+            - ./nachos -x ../test/demandpage_test\
+            - ./nachos -x ../test/malloc_test\
 For syscalls  - Add c code in test\
               - Then Makefile in test (2 parts) \
               - Then start.S in test\

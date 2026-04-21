@@ -1,4 +1,4 @@
-DEFINES =  -DFILESYS_STUB -DRDATA -DSIM_FIX
+DEFINES =  -DUSE_TLB -DFILESYS_STUB -DRDATA -DSIM_FIX
 
 
 #####################################################################
