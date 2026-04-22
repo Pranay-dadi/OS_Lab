@@ -1,4 +1,17 @@
-#Instructions\
+# Instructions\
+
+# Install building tools like make, g++
+bash install_building_tools.sh\
+
+# Build the nachos
+bash build_nachos.sh\
+
+# Build the coff2noff translator
+bash coff2noff.sh\
+
+# Build & run tests in code/test folder
+bash build_test.sh\
+
 test drectory -make clean\
               -make\
 build.linux - make clean\

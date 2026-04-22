@@ -11,6 +11,7 @@
 #ifndef __USERPROG_KSYSCALL_H__
 #define __USERPROG_KSYSCALL_H__
 
+#include <cstdint>
 #include "kernel.h"
 #include "synchconsole.h"
 #include "ksyscallhelper.h"
